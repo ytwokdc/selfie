@@ -320,15 +320,79 @@
             finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
             finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-            // ดาวน์โหลดแบบเดิมที่ใช้งานได้
-            const link = document.createElement('a');
-            link.download = `photo-${Date.now()}.png`;
-            link.href = finalCanvas.toDataURL('image/png');
-            link.click();
-
-            // เปิดกล้องต่อ
-            reopenCamera();
+            // ลองหลายวิธีจนกว่าจะสำเร็จ
+            const saved = await trySaveImage();
+            
+            if (saved) {
+                // เปิดกล้องต่อ
+                reopenCamera();
+            }
         });
+
+        async function trySaveImage() {
+            const filename = `photo-${Date.now()}.png`;
+            
+            // วิธีที่ 1: ลอง Share API (ดีที่สุดสำหรับมือถือ)
+            try {
+                const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
+                const file = new File([blob], filename, { type: 'image/png' });
+                
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Photo'
+                    });
+                    console.log('Saved via Share API');
+                    return true;
+                }
+            } catch (e) {
+                console.log('Share API failed, trying next method...');
+            }
+
+            // วิธีที่ 2: Download link
+            try {
+                const dataUrl = finalCanvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                console.log('Saved via download link');
+                
+                // รอให้ download เริ่ม
+                await new Promise(resolve => setTimeout(resolve, 300));
+                return true;
+            } catch (e) {
+                console.log('Download link failed, trying next method...');
+            }
+
+            // วิธีที่ 3: เปิดใน new window (long press to save)
+            try {
+                const dataUrl = finalCanvas.toDataURL('image/png');
+                const win = window.open();
+                if (win) {
+                    win.document.write(`
+                        <html>
+                        <head><title>Photo</title></head>
+                        <body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#000;">
+                            <img src="${dataUrl}" style="max-width:100%;max-height:100%;"/>
+                            <p style="position:absolute;top:10px;left:50%;transform:translateX(-50%);color:white;background:rgba(0,0,0,0.7);padding:10px;border-radius:5px;">
+                                กดค้างที่รูปเพื่อบันทึก
+                            </p>
+                        </body>
+                        </html>
+                    `);
+                    console.log('Opened in new window');
+                    return true;
+                }
+            } catch (e) {
+                console.log('New window failed');
+            }
+
+            alert('ไม่สามารถบันทึกรูปได้ กรุณาลองอีกครั้ง');
+            return false;
+        }
 
         // ยกเลิก
         document.getElementById('cancelBtn').addEventListener('click', () => {
