@@ -320,17 +320,11 @@
             finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
             finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-            // บันทึกด้วย blob
-            finalCanvas.toBlob((blob) => {
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `photo-${Date.now()}.png`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                setTimeout(() => URL.revokeObjectURL(url), 100);
-            }, 'image/png');
+            // ดาวน์โหลดแบบเดิมที่ใช้งานได้
+            const link = document.createElement('a');
+            link.download = `photo-${Date.now()}.png`;
+            link.href = finalCanvas.toDataURL('image/png');
+            link.click();
 
             // เปิดกล้องต่อ
             reopenCamera();
