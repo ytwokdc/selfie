@@ -186,19 +186,6 @@
             color: white;
         }
 
-        .result-section {
-            display: none;
-        }
-
-        #resultImage {
-            max-width: 100%;
-            height: auto;
-            border-radius: 12px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
-            margin-bottom: 20px;
-            display: block;
-        }
-
         @media (max-width: 600px) {
             .container {
                 padding: 20px;
@@ -244,14 +231,6 @@
         <div class="button-group" id="saveButtons" style="display: none;">
             <button class="btn-success" id="saveBtn">💾 บันทึกรูป</button>
             <button class="btn-primary" id="cancelBtn">ยกเลิก</button>
-        </div>
-
-        <div class="result-section" id="resultSection">
-            <img id="resultImage">
-            <div class="button-group">
-                <button class="btn-info" id="downloadBtn">💾 บันทึกรูป</button>
-                <button class="btn-primary" id="retakeBtn">ถ่ายรูปใหม่</button>
-            </div>
         </div>
     </div>
 
@@ -369,9 +348,27 @@
 
             try {
                 // จับภาพจากวิดีโอ
-                captureCanvas.width = video.videoWidth;
-                captureCanvas.height = video.videoHeight;
-                captureCtx.drawImage(video, 0, 0);
+                const vw = video.videoWidth;
+                const vh = video.videoHeight;
+                
+                // ตรวจสอบว่าเป็นแนวนอนหรือไม่ ถ้าใช่ต้องหมุน
+                const isLandscape = vw > vh;
+                
+                if (isLandscape) {
+                    // หมุนภาพ 90 องศา
+                    captureCanvas.width = vh;
+                    captureCanvas.height = vw;
+                    captureCtx.save();
+                    captureCtx.translate(vh / 2, vw / 2);
+                    captureCtx.rotate(90 * Math.PI / 180);
+                    captureCtx.drawImage(video, -vw / 2, -vh / 2, vw, vh);
+                    captureCtx.restore();
+                } else {
+                    // ภาพแนวตั้งอยู่แล้ว
+                    captureCanvas.width = vw;
+                    captureCanvas.height = vh;
+                    captureCtx.drawImage(video, 0, 0);
+                }
 
                 // แปลงเป็น Image object
                 capturedImage = await loadImage(captureCanvas.toDataURL());
@@ -397,7 +394,7 @@
             }
         });
 
-        // บันทึกรูป (สร้างไฟล์สุดท้าย)
+        // บันทึกรูป (สร้างไฟล์สุดท้ายและดาวน์โหลดทันที)
         document.getElementById('saveBtn').addEventListener('click', () => {
             if (!capturedImage || !overlayImage) return;
 
@@ -418,13 +415,33 @@
             // วาด overlay layer
             finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-            // แสดงผลลัพธ์
-            document.getElementById('resultImage').src = finalCanvas.toDataURL('image/png');
+            // แสดงผลลัพธ์ในพื้นที่เทมเพลต
+            const resultImg = new Image();
+            resultImg.onload = () => {
+                previewCanvas.width = CANVAS_WIDTH;
+                previewCanvas.height = CANVAS_HEIGHT;
+                previewCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                previewCtx.drawImage(resultImg, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            };
+            resultImg.src = finalCanvas.toDataURL('image/png');
+
+            // ซ่อน controls
             document.getElementById('scaleControls').classList.remove('show');
             document.getElementById('saveButtons').style.display = 'none';
-            previewCanvas.style.display = 'none';
             overlayCanvas.style.display = 'none';
-            document.getElementById('resultSection').style.display = 'block';
+
+            // ดาวน์โหลดทันที
+            const link = document.createElement('a');
+            link.download = `photo-${Date.now()}.png`;
+            link.href = finalCanvas.toDataURL('image/png');
+            link.click();
+
+            // แสดงปุ่มถ่ายใหม่
+            setTimeout(() => {
+                document.getElementById('cameraButtons').style.display = 'flex';
+                document.getElementById('startCamera').disabled = false;
+                document.getElementById('capture').disabled = true;
+            }, 500);
         });
 
         // ยกเลิก
