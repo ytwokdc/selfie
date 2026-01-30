@@ -370,10 +370,30 @@
             document.getElementById('cameraButtons').style.display = 'none';
 
             try {
-                // จับภาพจากวิดีโอตามที่กล้องส่งมา (ไม่หมุน)
-                captureCanvas.width = video.videoWidth;
-                captureCanvas.height = video.videoHeight;
-                captureCtx.drawImage(video, 0, 0);
+                const vw = video.videoWidth;
+                const vh = video.videoHeight;
+                
+                console.log('Camera output:', vw, 'x', vh);
+                
+                // ถ้ากล้องส่งมาแนวนอน (width > height) ต้องหมุน 90 องศา
+                if (vw > vh) {
+                    console.log('Camera is LANDSCAPE - rotating 90 degrees');
+                    // หมุนให้เป็นแนวตั้ง
+                    captureCanvas.width = vh;
+                    captureCanvas.height = vw;
+                    captureCtx.save();
+                    captureCtx.translate(vh / 2, vw / 2);
+                    captureCtx.rotate(-90 * Math.PI / 180);
+                    captureCtx.drawImage(video, -vw / 2, -vh / 2, vw, vh);
+                    captureCtx.restore();
+                } else {
+                    console.log('Camera is PORTRAIT - no rotation needed');
+                    captureCanvas.width = vw;
+                    captureCanvas.height = vh;
+                    captureCtx.drawImage(video, 0, 0);
+                }
+                
+                console.log('Final image:', captureCanvas.width, 'x', captureCanvas.height);
 
                 // แปลงเป็น Image object
                 capturedImage = await loadImage(captureCanvas.toDataURL());
@@ -400,7 +420,7 @@
         });
 
         // บันทึกรูป (สร้างไฟล์สุดท้ายและดาวน์โหลดทันที)
-        document.getElementById('saveBtn').addEventListener('click', () => {
+        document.getElementById('saveBtn').addEventListener('click', async () => {
             if (!capturedImage || !overlayImage) return;
 
             finalCanvas.width = CANVAS_WIDTH;
@@ -436,17 +456,32 @@
             document.getElementById('saveButtons').style.display = 'none';
             overlayCanvas.style.display = 'none';
 
-            // ดาวน์โหลดด้วย blob (รองรับมือถือดีกว่า)
-            finalCanvas.toBlob((blob) => {
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `photo-${Date.now()}.png`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-            }, 'image/png');
+            // บันทึกรูป - ลอง Share API ก่อน (สำหรับมือถือ)
+            try {
+                const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
+                
+                if (navigator.share && navigator.canShare) {
+                    const file = new File([blob], `photo-${Date.now()}.png`, { type: 'image/png' });
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            files: [file],
+                            title: 'Photo',
+                        });
+                        console.log('Shared successfully');
+                    } else {
+                        // ถ้า share ไม่ได้ ให้เปิดใน new tab
+                        openImageInNewTab(blob);
+                    }
+                } else {
+                    // ถ้าไม่มี share API ให้เปิดใน new tab
+                    openImageInNewTab(blob);
+                }
+            } catch (error) {
+                console.log('Share/Save error:', error);
+                // ถ้า error ก็เปิดใน new tab
+                const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
+                openImageInNewTab(blob);
+            }
 
             // แสดงปุ่มถ่ายใหม่
             setTimeout(() => {
@@ -455,6 +490,22 @@
                 document.getElementById('capture').disabled = true;
             }, 500);
         });
+
+        // เปิดรูปใน new tab (สำหรับ long press to save)
+        function openImageInNewTab(blob) {
+            const url = URL.createObjectURL(blob);
+            const win = window.open(url, '_blank');
+            if (!win) {
+                // ถ้าเปิด new tab ไม่ได้ ให้ download
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `photo-${Date.now()}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(url), 100);
+            }
+        }
 
         // ยกเลิก
         document.getElementById('cancelBtn').addEventListener('click', () => {
