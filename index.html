@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Photo Layer Composer</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.2.0"></script>
     <style>
         * {
             margin: 0;
@@ -40,26 +38,31 @@
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            background: #000;
         }
 
-        #templateCanvas, #previewCanvas {
+        #video {
             width: 100%;
             height: auto;
             display: block;
         }
 
         #previewCanvas {
+            width: 100%;
+            height: auto;
+            display: none;
+        }
+
+        #overlayCanvas {
             position: absolute;
             top: 0;
             left: 0;
-            display: none;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
         }
 
-        #video {
-            display: none;
-        }
-
-        #canvas, #finalCanvas, #segmentCanvas {
+        #captureCanvas, #finalCanvas {
             display: none;
         }
 
@@ -195,23 +198,22 @@
 </head>
 <body>
     <div class="container">
-        <div class="canvas-wrapper">
-            <canvas id="templateCanvas"></canvas>
+        <div class="canvas-wrapper" id="canvasWrapper">
+            <video id="video" autoplay playsinline></video>
             <canvas id="previewCanvas"></canvas>
+            <canvas id="overlayCanvas"></canvas>
         </div>
 
-        <video id="video" autoplay playsinline></video>
-        <canvas id="canvas"></canvas>
-        <canvas id="segmentCanvas"></canvas>
+        <canvas id="captureCanvas"></canvas>
         <canvas id="finalCanvas"></canvas>
 
         <div class="controls" id="scaleControls">
             <div class="slider-container">
                 <label>ปรับขนาด</label>
                 <button class="btn-primary" id="scaleDown" style="padding: 8px 15px;">-</button>
-                <input type="range" id="scaleSlider" min="20" max="150" value="50" step="5">
+                <input type="range" id="scaleSlider" min="20" max="150" value="100" step="5">
                 <button class="btn-primary" id="scaleUp" style="padding: 8px 15px;">+</button>
-                <span class="value-display" id="scaleValue">50%</span>
+                <span class="value-display" id="scaleValue">100%</span>
             </div>
         </div>
 
@@ -230,43 +232,37 @@
     </div>
 
     <script>
-        // กำหนดภาพเทมเพลต
-        const BACKGROUND_IMAGE_URL = './images/background.png';
-        const FOREGROUND_IMAGE_URL = './images/foreground.png';
+        // กำหนดภาพ overlay (PNG โปร่งใส)
+        const OVERLAY_IMAGE_URL = './images/overlay.png';
 
         let stream = null;
-        let bodyPixModel = null;
-        let backgroundImage = null;
-        let foregroundImage = null;
-        let cutoutImageData = null;
-        let objectScale = 0.5; // เริ่มต้นที่ 50% สำหรับ selfie
-        let isPreviewActive = false;
-        let previewInterval = null;
+        let overlayImage = null;
+        let capturedImage = null;
+        let objectScale = 1.0;
 
         const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const segmentCanvas = document.getElementById('segmentCanvas');
-        const templateCanvas = document.getElementById('templateCanvas');
         const previewCanvas = document.getElementById('previewCanvas');
+        const overlayCanvas = document.getElementById('overlayCanvas');
+        const captureCanvas = document.getElementById('captureCanvas');
         const finalCanvas = document.getElementById('finalCanvas');
-        const ctx = canvas.getContext('2d');
-        const segmentCtx = segmentCanvas.getContext('2d');
-        const templateCtx = templateCanvas.getContext('2d');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        
         const previewCtx = previewCanvas.getContext('2d');
+        const overlayCtx = overlayCanvas.getContext('2d');
+        const captureCtx = captureCanvas.getContext('2d');
         const finalCtx = finalCanvas.getContext('2d');
 
-        // โหลดภาพเทมเพลต
-        async function loadTemplateImages() {
+        // โหลดภาพ overlay
+        async function loadOverlayImage() {
             try {
-                backgroundImage = await loadImage(BACKGROUND_IMAGE_URL);
-                foregroundImage = await loadImage(FOREGROUND_IMAGE_URL);
+                overlayImage = await loadImage(OVERLAY_IMAGE_URL);
                 
-                // แสดงเทมเพลตรวมกัน
-                drawTemplate();
+                // วาด overlay บนกล้อง
+                drawOverlay();
                 
                 return true;
             } catch (error) {
-                console.error('Cannot load templates:', error);
+                console.error('Cannot load overlay:', error);
                 return false;
             }
         }
@@ -281,132 +277,53 @@
             });
         }
 
-        // วาดเทมเพลต (background + foreground)
-        function drawTemplate() {
-            templateCanvas.width = backgroundImage.width;
-            templateCanvas.height = backgroundImage.height;
+        // วาด overlay layer
+        function drawOverlay() {
+            if (!overlayImage) return;
 
-            templateCtx.clearRect(0, 0, templateCanvas.width, templateCanvas.height);
-            templateCtx.drawImage(backgroundImage, 0, 0);
-            templateCtx.drawImage(foregroundImage, 0, 0);
+            const width = overlayImage.width;
+            const height = overlayImage.height;
+
+            overlayCanvas.width = width;
+            overlayCanvas.height = height;
+
+            overlayCtx.clearRect(0, 0, width, height);
+            overlayCtx.drawImage(overlayImage, 0, 0, width, height);
         }
 
-        // โหลด BodyPix model
-        async function loadModel() {
-            if (bodyPixModel) return;
+        // วาดภาพที่ถ่าย + overlay
+        function drawPreview() {
+            if (!capturedImage || !overlayImage) return;
+
+            const overlayWidth = overlayImage.width;
+            const overlayHeight = overlayImage.height;
+
+            previewCanvas.width = overlayWidth;
+            previewCanvas.height = overlayHeight;
+
+            // คำนวณขนาดภาพที่ถ่าย
+            const scale = Math.min(overlayWidth / capturedImage.width, overlayHeight / capturedImage.height) * objectScale;
+            const scaledWidth = capturedImage.width * scale;
+            const scaledHeight = capturedImage.height * scale;
+            const x = (overlayWidth - scaledWidth) / 2;
+            const y = (overlayHeight - scaledHeight) / 2;
+
+            // วาดภาพที่ถ่าย
+            previewCtx.clearRect(0, 0, overlayWidth, overlayHeight);
+            previewCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
+        }
+
+        // ปรับขนาด wrapper ตามขนาด overlay
+        function resizeWrapper() {
+            if (!overlayImage) return;
             
-            try {
-                bodyPixModel = await bodyPix.load({
-                    architecture: 'MobileNetV1',
-                    outputStride: 16,
-                    multiplier: 0.75,
-                    quantBytes: 2
-                });
-            } catch (error) {
-                console.error('Cannot load AI model:', error);
-            }
-        }
-
-        // ตัดพื้นหลังและวาดบน preview canvas
-        async function updatePreview() {
-            if (!isPreviewActive || !bodyPixModel || !video.videoWidth) return;
-
-            try {
-                // จับภาพจากวิดีโอ
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0);
-
-                // ตัดพื้นหลังด้วย BodyPix
-                const segmentation = await bodyPixModel.segmentPerson(canvas, {
-                    flipHorizontal: false,
-                    internalResolution: 'medium',
-                    segmentationThreshold: 0.5
-                });
-
-                // สร้างภาพที่ตัดพื้นหลังแล้ว
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const pixel = imageData.data;
-                
-                for (let i = 0; i < pixel.length; i += 4) {
-                    const isPerson = segmentation.data[i / 4];
-                    if (!isPerson) {
-                        pixel[i + 3] = 0; // ทำให้พื้นหลังโปร่งใส
-                    }
-                }
-
-                segmentCanvas.width = canvas.width;
-                segmentCanvas.height = canvas.height;
-                segmentCtx.putImageData(imageData, 0, 0);
-
-                // วาดบน preview canvas
-                drawPreviewComposite();
-
-            } catch (error) {
-                console.error('Preview error:', error);
-            }
-        }
-
-        // วาดภาพรวมบน preview canvas
-        function drawPreviewComposite() {
-            const bgWidth = backgroundImage.width;
-            const bgHeight = backgroundImage.height;
-
-            previewCanvas.width = bgWidth;
-            previewCanvas.height = bgHeight;
-
-            // วาด background
-            previewCtx.clearRect(0, 0, bgWidth, bgHeight);
-            previewCtx.drawImage(backgroundImage, 0, 0);
-
-            // วาดวัตถุที่ตัดแล้ว
-            const scale = Math.min(bgWidth / segmentCanvas.width, bgHeight / segmentCanvas.height) * objectScale;
-            const scaledWidth = segmentCanvas.width * scale;
-            const scaledHeight = segmentCanvas.height * scale;
-            const x = (bgWidth - scaledWidth) / 2;
-            const y = (bgHeight - scaledHeight) / 2;
-
-            previewCtx.drawImage(segmentCanvas, x, y, scaledWidth, scaledHeight);
-
-            // วาด foreground
-            previewCtx.drawImage(foregroundImage, 0, 0);
-        }
-
-        // วาดภาพรวมจาก cutout ที่เก็บไว้
-        function drawFinalComposite() {
-            const bgWidth = backgroundImage.width;
-            const bgHeight = backgroundImage.height;
-
-            previewCanvas.width = bgWidth;
-            previewCanvas.height = bgHeight;
-
-            // วาด background
-            previewCtx.clearRect(0, 0, bgWidth, bgHeight);
-            previewCtx.drawImage(backgroundImage, 0, 0);
-
-            // สร้าง temp canvas จาก cutout data
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = cutoutImageData.width;
-            tempCanvas.height = cutoutImageData.height;
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.putImageData(cutoutImageData, 0, 0);
-
-            // วาดวัตถุที่ตัดแล้ว
-            const scale = Math.min(bgWidth / tempCanvas.width, bgHeight / tempCanvas.height) * objectScale;
-            const scaledWidth = tempCanvas.width * scale;
-            const scaledHeight = tempCanvas.height * scale;
-            const x = (bgWidth - scaledWidth) / 2;
-            const y = (bgHeight - scaledHeight) / 2;
-
-            previewCtx.drawImage(tempCanvas, x, y, scaledWidth, scaledHeight);
-
-            // วาด foreground
-            previewCtx.drawImage(foregroundImage, 0, 0);
+            const aspectRatio = overlayImage.height / overlayImage.width;
+            canvasWrapper.style.paddingBottom = (aspectRatio * 100) + '%';
         }
 
         // เปิดกล้อง
         document.getElementById('startCamera').addEventListener('click', async () => {
-            if (!backgroundImage || !foregroundImage) {
+            if (!overlayImage) {
                 return;
             }
 
@@ -421,84 +338,47 @@
                 });
                 
                 video.srcObject = stream;
+                video.style.display = 'block';
                 
                 document.getElementById('startCamera').disabled = true;
                 document.getElementById('capture').disabled = false;
-
-                // โหลด model ถ้ายังไม่ได้โหลด
-                if (!bodyPixModel) {
-                    await loadModel();
-                }
-
-                // รอ video พร้อม แล้วเริ่ม preview
-                video.onloadedmetadata = () => {
-                    previewCanvas.style.display = 'block';
-                    isPreviewActive = true;
-                    
-                    // Update preview ทุก 1.5 วินาที
-                    previewInterval = setInterval(updatePreview, 1500);
-                };
 
             } catch (error) {
                 console.error('Cannot access camera:', error);
             }
         });
 
-        // ถ่ายรูปและประมวลผล
+        // ถ่ายรูป
         document.getElementById('capture').addEventListener('click', async () => {
-            if (!bodyPixModel) {
-                return;
-            }
-
-            // หยุด preview
-            isPreviewActive = false;
-            if (previewInterval) {
-                clearInterval(previewInterval);
-                previewInterval = null;
-            }
+            if (!video.videoWidth) return;
 
             document.getElementById('cameraButtons').style.display = 'none';
 
             try {
                 // จับภาพจากวิดีโอ
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0);
+                captureCanvas.width = video.videoWidth;
+                captureCanvas.height = video.videoHeight;
+                captureCtx.drawImage(video, 0, 0);
 
-                // ตัดพื้นหลังด้วย BodyPix
-                const segmentation = await bodyPixModel.segmentPerson(canvas, {
-                    flipHorizontal: false,
-                    internalResolution: 'medium',
-                    segmentationThreshold: 0.5
-                });
+                // แปลงเป็น Image object
+                capturedImage = await loadImage(captureCanvas.toDataURL());
 
-                // สร้างภาพที่ตัดพื้นหลังแล้ว
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const pixel = imageData.data;
+                // แสดง preview
+                video.style.display = 'none';
+                previewCanvas.style.display = 'block';
                 
-                for (let i = 0; i < pixel.length; i += 4) {
-                    const isPerson = segmentation.data[i / 4];
-                    if (!isPerson) {
-                        pixel[i + 3] = 0;
-                    }
-                }
-
-                // เก็บ cutout data
-                cutoutImageData = imageData;
-
-                // แสดง preview พร้อม slider
-                drawFinalComposite();
+                drawPreview();
+                
                 document.getElementById('scaleControls').classList.add('show');
                 
-                // ซ่อนกล้อง
-                previewCanvas.style.display = 'block';
+                // ปิดกล้อง
                 if (stream) {
                     stream.getTracks().forEach(track => track.stop());
                     video.srcObject = null;
                 }
 
             } catch (error) {
-                console.error('Processing error:', error);
+                console.error('Capture error:', error);
                 document.getElementById('cameraButtons').style.display = 'flex';
             }
         });
@@ -510,8 +390,8 @@
         scaleSlider.addEventListener('input', (e) => {
             objectScale = e.target.value / 100;
             scaleValue.textContent = e.target.value + '%';
-            if (cutoutImageData) {
-                drawFinalComposite();
+            if (capturedImage) {
+                drawPreview();
             }
         });
 
@@ -527,40 +407,33 @@
 
         // บันทึกรูป
         document.getElementById('downloadBtn').addEventListener('click', () => {
-            // สร้างภาพสุดท้าย
-            const bgWidth = backgroundImage.width;
-            const bgHeight = backgroundImage.height;
+            if (!capturedImage || !overlayImage) return;
 
-            finalCanvas.width = bgWidth;
-            finalCanvas.height = bgHeight;
+            const overlayWidth = overlayImage.width;
+            const overlayHeight = overlayImage.height;
 
-            // วาด background
-            finalCtx.clearRect(0, 0, bgWidth, bgHeight);
-            finalCtx.drawImage(backgroundImage, 0, 0);
+            finalCanvas.width = overlayWidth;
+            finalCanvas.height = overlayHeight;
 
-            // สร้าง temp canvas จาก cutout data
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = cutoutImageData.width;
-            tempCanvas.height = cutoutImageData.height;
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.putImageData(cutoutImageData, 0, 0);
+            // คำนวณขนาดภาพที่ถ่าย
+            const scale = Math.min(overlayWidth / capturedImage.width, overlayHeight / capturedImage.height) * objectScale;
+            const scaledWidth = capturedImage.width * scale;
+            const scaledHeight = capturedImage.height * scale;
+            const x = (overlayWidth - scaledWidth) / 2;
+            const y = (overlayHeight - scaledHeight) / 2;
 
-            // วาดวัตถุ
-            const scale = Math.min(bgWidth / tempCanvas.width, bgHeight / tempCanvas.height) * objectScale;
-            const scaledWidth = tempCanvas.width * scale;
-            const scaledHeight = tempCanvas.height * scale;
-            const x = (bgWidth - scaledWidth) / 2;
-            const y = (bgHeight - scaledHeight) / 2;
+            // วาดภาพที่ถ่าย
+            finalCtx.clearRect(0, 0, overlayWidth, overlayHeight);
+            finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
 
-            finalCtx.drawImage(tempCanvas, x, y, scaledWidth, scaledHeight);
-
-            // วาด foreground
-            finalCtx.drawImage(foregroundImage, 0, 0);
+            // วาด overlay layer
+            finalCtx.drawImage(overlayImage, 0, 0, overlayWidth, overlayHeight);
 
             // แสดงผลลัพธ์
             document.getElementById('resultImage').src = finalCanvas.toDataURL('image/png');
             document.getElementById('scaleControls').classList.remove('show');
             previewCanvas.style.display = 'none';
+            overlayCanvas.style.display = 'none';
             document.getElementById('resultSection').style.display = 'block';
 
             // ดาวน์โหลด
@@ -578,22 +451,23 @@
             document.getElementById('capture').disabled = true;
             document.getElementById('scaleControls').classList.remove('show');
             
+            video.style.display = 'none';
             previewCanvas.style.display = 'none';
-            cutoutImageData = null;
-            objectScale = 0.5;
-            scaleSlider.value = 50;
-            scaleValue.textContent = '50%';
+            overlayCanvas.style.display = 'block';
             
-            // วาดเทมเพลตใหม่
-            drawTemplate();
+            capturedImage = null;
+            objectScale = 1.0;
+            scaleSlider.value = 100;
+            scaleValue.textContent = '100%';
+            
+            // วาด overlay ใหม่
+            drawOverlay();
         });
 
-        // โหลดเทมเพลตและ model ตอนเริ่มต้น
+        // โหลด overlay ตอนเริ่มต้น
         window.addEventListener('load', async () => {
-            const loaded = await loadTemplateImages();
-            if (loaded) {
-                await loadModel();
-            }
+            await loadOverlayImage();
+            resizeWrapper();
         });
     </script>
 </body>
