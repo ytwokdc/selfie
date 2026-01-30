@@ -39,17 +39,20 @@
             overflow: hidden;
             box-shadow: 0 8px 25px rgba(0,0,0,0.2);
             background: #000;
+            aspect-ratio: 857 / 1200;
         }
 
         #video {
             width: 100%;
-            height: auto;
+            height: 100%;
+            object-fit: cover;
             display: block;
         }
 
         #previewCanvas {
             width: 100%;
-            height: auto;
+            height: 100%;
+            object-fit: cover;
             display: none;
         }
 
@@ -234,6 +237,8 @@
     <script>
         // กำหนดภาพ overlay (PNG โปร่งใส)
         const OVERLAY_IMAGE_URL = './images/overlay.png';
+        const CANVAS_WIDTH = 857;
+        const CANVAS_HEIGHT = 1200;
 
         let stream = null;
         let overlayImage = null;
@@ -281,44 +286,30 @@
         function drawOverlay() {
             if (!overlayImage) return;
 
-            const width = overlayImage.width;
-            const height = overlayImage.height;
+            overlayCanvas.width = CANVAS_WIDTH;
+            overlayCanvas.height = CANVAS_HEIGHT;
 
-            overlayCanvas.width = width;
-            overlayCanvas.height = height;
-
-            overlayCtx.clearRect(0, 0, width, height);
-            overlayCtx.drawImage(overlayImage, 0, 0, width, height);
+            overlayCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            overlayCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         }
 
-        // วาดภาพที่ถ่าย + overlay
+        // วาดภาพที่ถ่าย + overlay (fill เต็มพื้นที่)
         function drawPreview() {
             if (!capturedImage || !overlayImage) return;
 
-            const overlayWidth = overlayImage.width;
-            const overlayHeight = overlayImage.height;
+            previewCanvas.width = CANVAS_WIDTH;
+            previewCanvas.height = CANVAS_HEIGHT;
 
-            previewCanvas.width = overlayWidth;
-            previewCanvas.height = overlayHeight;
-
-            // คำนวณขนาดภาพที่ถ่าย
-            const scale = Math.min(overlayWidth / capturedImage.width, overlayHeight / capturedImage.height) * objectScale;
+            // คำนวณให้ภาพเต็มพื้นที่ (crop ถ้าจำเป็น)
+            const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height) * objectScale;
             const scaledWidth = capturedImage.width * scale;
             const scaledHeight = capturedImage.height * scale;
-            const x = (overlayWidth - scaledWidth) / 2;
-            const y = (overlayHeight - scaledHeight) / 2;
+            const x = (CANVAS_WIDTH - scaledWidth) / 2;
+            const y = (CANVAS_HEIGHT - scaledHeight) / 2;
 
             // วาดภาพที่ถ่าย
-            previewCtx.clearRect(0, 0, overlayWidth, overlayHeight);
+            previewCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
             previewCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
-        }
-
-        // ปรับขนาด wrapper ตามขนาด overlay
-        function resizeWrapper() {
-            if (!overlayImage) return;
-            
-            const aspectRatio = overlayImage.height / overlayImage.width;
-            canvasWrapper.style.paddingBottom = (aspectRatio * 100) + '%';
         }
 
         // เปิดกล้อง
@@ -409,25 +400,22 @@
         document.getElementById('downloadBtn').addEventListener('click', () => {
             if (!capturedImage || !overlayImage) return;
 
-            const overlayWidth = overlayImage.width;
-            const overlayHeight = overlayImage.height;
+            finalCanvas.width = CANVAS_WIDTH;
+            finalCanvas.height = CANVAS_HEIGHT;
 
-            finalCanvas.width = overlayWidth;
-            finalCanvas.height = overlayHeight;
-
-            // คำนวณขนาดภาพที่ถ่าย
-            const scale = Math.min(overlayWidth / capturedImage.width, overlayHeight / capturedImage.height) * objectScale;
+            // คำนวณให้ภาพเต็มพื้นที่ (crop ถ้าจำเป็น)
+            const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height) * objectScale;
             const scaledWidth = capturedImage.width * scale;
             const scaledHeight = capturedImage.height * scale;
-            const x = (overlayWidth - scaledWidth) / 2;
-            const y = (overlayHeight - scaledHeight) / 2;
+            const x = (CANVAS_WIDTH - scaledWidth) / 2;
+            const y = (CANVAS_HEIGHT - scaledHeight) / 2;
 
             // วาดภาพที่ถ่าย
-            finalCtx.clearRect(0, 0, overlayWidth, overlayHeight);
+            finalCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
             finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
 
             // วาด overlay layer
-            finalCtx.drawImage(overlayImage, 0, 0, overlayWidth, overlayHeight);
+            finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
             // แสดงผลลัพธ์
             document.getElementById('resultImage').src = finalCanvas.toDataURL('image/png');
@@ -467,7 +455,6 @@
         // โหลด overlay ตอนเริ่มต้น
         window.addEventListener('load', async () => {
             await loadOverlayImage();
-            resizeWrapper();
         });
     </script>
 </body>
