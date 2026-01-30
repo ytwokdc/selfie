@@ -511,35 +511,6 @@
             scaleSlider.dispatchEvent(new Event('input'));
         });
 
-        // ดาวน์โหลดรูป
-        document.getElementById('downloadBtn').addEventListener('click', () => {
-            const link = document.createElement('a');
-            link.download = `photo-${Date.now()}.png`;
-            link.href = finalCanvas.toDataURL('image/png');
-            link.click();
-        });
-
-        // ถ่ายใหม่
-        document.getElementById('retakeBtn').addEventListener('click', () => {
-            document.getElementById('resultSection').style.display = 'none';
-            document.getElementById('cameraButtons').style.display = 'flex';
-            document.getElementById('startCamera').disabled = false;
-            document.getElementById('capture').disabled = true;
-            document.getElementById('scaleControls').classList.remove('show');
-            
-            video.style.display = 'none';
-            previewCanvas.style.display = 'none';
-            overlayCanvas.style.display = 'block';
-            
-            capturedImage = null;
-            objectScale = 1.0;
-            scaleSlider.value = 100;
-            scaleValue.textContent = '100%';
-            
-            // วาด overlay ใหม่
-            drawOverlay();
-        });
-
         // โหลด overlay ตอนเริ่มต้น
         window.addEventListener('load', async () => {
             // ตั้งค่าขนาด overlay canvas ตั้งแต่ต้น
