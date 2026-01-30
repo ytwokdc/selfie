@@ -295,16 +295,28 @@
             if (!overlayImage) return;
 
             try {
+                // บังคับกล้องแนวตั้ง โดยให้ height > width
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: { 
                         facingMode: 'user',
-                        width: { ideal: 720 },
-                        height: { ideal: 960 }
+                        width: { ideal: 720, max: 720 },
+                        height: { ideal: 1280, min: 960 }
                     },
                     audio: false
                 });
                 
                 video.srcObject = stream;
+                
+                // รอให้ video พร้อม แล้ว log ขนาด
+                video.onloadedmetadata = () => {
+                    console.log('📷 Camera resolution:', video.videoWidth, 'x', video.videoHeight);
+                    if (video.videoWidth > video.videoHeight) {
+                        console.warn('⚠️ Camera is LANDSCAPE! Will rotate.');
+                    } else {
+                        console.log('✅ Camera is PORTRAIT!');
+                    }
+                };
+                
                 video.style.display = 'block';
                 overlayCanvas.style.display = 'block';
                 
@@ -326,16 +338,21 @@
                 const vw = video.videoWidth;
                 const vh = video.videoHeight;
                 
-                // ถ้ากล้องเป็นแนวนอน (W>H) ให้หมุน 90 องศา
+                console.log('📸 Capturing:', vw, 'x', vh);
+                
+                // ถ้ากล้องเป็นแนวนอน (W>H) ให้หมุน 270 องศา (-90)
                 if (vw > vh) {
+                    console.log('🔄 Rotating from landscape to portrait');
                     captureCanvas.width = vh;
                     captureCanvas.height = vw;
                     captureCtx.save();
-                    captureCtx.translate(vh, 0);
-                    captureCtx.rotate(90 * Math.PI / 180);
+                    captureCtx.translate(0, vw);
+                    captureCtx.rotate(-90 * Math.PI / 180);
                     captureCtx.drawImage(video, 0, 0, vw, vh);
                     captureCtx.restore();
+                    console.log('✅ Result:', captureCanvas.width, 'x', captureCanvas.height);
                 } else {
+                    console.log('✅ Already portrait, no rotation');
                     captureCanvas.width = vw;
                     captureCanvas.height = vh;
                     captureCtx.drawImage(video, 0, 0);
@@ -379,28 +396,30 @@
             finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
             finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-            // แสดงผลในพื้นที่เทมเพลต
-            const resultDataUrl = finalCanvas.toDataURL('image/png');
-            const resultImg = await loadImage(resultDataUrl);
-            previewCanvas.width = CANVAS_WIDTH;
-            previewCanvas.height = CANVAS_HEIGHT;
-            previewCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            previewCtx.drawImage(resultImg, 0, 0);
-
-            document.getElementById('scaleControls').classList.remove('show');
-            document.getElementById('saveButtons').style.display = 'none';
-            overlayCanvas.style.display = 'none';
-
             // ดาวน์โหลด
             const link = document.createElement('a');
             link.download = `photo-${Date.now()}.png`;
-            link.href = resultDataUrl;
+            link.href = finalCanvas.toDataURL('image/png');
             link.click();
 
+            // Reset กลับสู่สถานะเริ่มต้น
             setTimeout(() => {
+                document.getElementById('scaleControls').classList.remove('show');
+                document.getElementById('saveButtons').style.display = 'none';
                 document.getElementById('cameraButtons').style.display = 'flex';
                 document.getElementById('startCamera').disabled = false;
                 document.getElementById('capture').disabled = true;
+                
+                previewCanvas.style.display = 'none';
+                overlayCanvas.style.display = 'block';
+                
+                capturedImage = null;
+                objectScale = 1.0;
+                document.getElementById('scaleSlider').value = 100;
+                document.getElementById('scaleValue').textContent = '100%';
+                
+                // แสดงเทมเพลตกลับมา
+                drawOverlay();
             }, 300);
         });
 
