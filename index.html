@@ -39,6 +39,74 @@
             font-size: 28px;
         }
 
+        .template-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+        }
+
+        .template-section h3 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .template-item {
+            text-align: center;
+        }
+
+        .template-item label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            background: white;
+            font-size: 13px;
+        }
+
+        .template-preview {
+            margin-top: 10px;
+            max-width: 100%;
+            max-height: 120px;
+            border-radius: 8px;
+            border: 2px solid #dee2e6;
+            display: none;
+        }
+
+        .template-status {
+            margin-top: 8px;
+            font-size: 12px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            display: inline-block;
+        }
+
+        .template-status.loaded {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .template-status.missing {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
         .camera-section {
             margin-bottom: 25px;
         }
@@ -251,6 +319,17 @@
             color: #721c24;
         }
 
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        @media (max-width: 768px) {
+            .template-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         @media (max-width: 600px) {
             .container {
                 padding: 20px;
@@ -271,9 +350,32 @@
     <div class="container">
         <h1>📸 Photo Layer Composer</h1>
 
+        <!-- อัพโหลดเทมเพลต -->
+        <div class="template-section">
+            <h3>1. เทมเพลต (Background & Foreground)</h3>
+            <div class="template-grid">
+                <div class="template-item">
+                    <label>Layer 1 - พื้นหลัง (Background)</label>
+                    <input type="file" id="bgUpload" accept="image/*">
+                    <img id="bgPreview" class="template-preview">
+                    <div id="bgStatus" class="template-status missing">ยังไม่มีรูป</div>
+                </div>
+                <div class="template-item">
+                    <label>Layer 2 - หน้าสุด (Foreground)</label>
+                    <input type="file" id="fgUpload" accept="image/*">
+                    <img id="fgPreview" class="template-preview">
+                    <div id="fgStatus" class="template-status missing">ยังไม่มีรูป</div>
+                </div>
+            </div>
+            <p style="font-size: 13px; color: #6c757d; margin-top: 10px;">
+                💡 <strong>หมายเหตุ:</strong> วางรูปชื่อ <code>background.png</code> และ <code>foreground.png</code> 
+                ในโฟลเดอร์ <code>images/</code> หรืออัพโหลดที่นี่
+            </p>
+        </div>
+
         <!-- กล้อง -->
         <div class="camera-section">
-            <h3 style="margin-bottom: 15px; color: #495057; text-align: center;">ถ่ายรูปวัตถุ</h3>
+            <h3 style="margin-bottom: 15px; color: #495057; text-align: center;">2. ถ่ายรูปวัตถุ</h3>
             <video id="video" autoplay playsinline></video>
             <canvas id="canvas"></canvas>
             
@@ -293,7 +395,7 @@
 
         <!-- แก้ไขตำแหน่งและขนาด -->
         <div class="edit-section" id="editSection">
-            <h3 style="margin-bottom: 15px; color: #495057; text-align: center;">ปรับแต่งภาพ</h3>
+            <h3 style="margin-bottom: 15px; color: #495057; text-align: center;">3. ปรับแต่งภาพ</h3>
             
             <canvas id="previewCanvas"></canvas>
 
@@ -325,7 +427,7 @@
 
         <!-- ผลลัพธ์ -->
         <div id="result">
-            <h3 style="margin-bottom: 15px; color: #495057;">ผลลัพธ์</h3>
+            <h3 style="margin-bottom: 15px; color: #495057;">4. ผลลัพธ์</h3>
             <img id="resultImage">
             <div class="button-group">
                 <button class="btn-info" id="downloadBtn">💾 ดาวน์โหลดรูป</button>
@@ -338,8 +440,8 @@
 
     <script>
         // กำหนดภาพตายตัว - วางรูปไว้ในโฟลเดอร์ images/
-        const BACKGROUND_IMAGE_URL = './images/background.png'; // Layer 1 (พื้นหลัง)
-        const FOREGROUND_IMAGE_URL = './images/foreground.png'; // Layer 2 (หน้าสุด)
+        const BACKGROUND_IMAGE_URL = './images/background.png';
+        const FOREGROUND_IMAGE_URL = './images/foreground.png';
 
         let stream = null;
         let bodyPixModel = null;
@@ -363,22 +465,45 @@
         const previewCtx = previewCanvas.getContext('2d');
         const finalCtx = finalCanvas.getContext('2d');
 
-        // โหลดภาพเทมเพลต
+        // โหลดภาพเทมเพลตจากโฟลเดอร์
         async function loadTemplateImages() {
-            showStatus('กำลังโหลดเทมเพลต...', 'info');
-            
+            let bgLoaded = false;
+            let fgLoaded = false;
+
+            // พยายามโหลด Background
             try {
-                // โหลด Background
                 backgroundImage = await loadImage(BACKGROUND_IMAGE_URL);
-                
-                // โหลด Foreground
-                foregroundImage = await loadImage(FOREGROUND_IMAGE_URL);
-                
-                showStatus('โหลดเทมเพลตสำเร็จ!', 'success');
-                return true;
+                document.getElementById('bgPreview').src = BACKGROUND_IMAGE_URL;
+                document.getElementById('bgPreview').style.display = 'block';
+                document.getElementById('bgStatus').textContent = '✓ โหลดสำเร็จ';
+                document.getElementById('bgStatus').className = 'template-status loaded';
+                bgLoaded = true;
             } catch (error) {
-                showStatus('ไม่สามารถโหลดเทมเพลตได้: ' + error.message, 'error');
-                return false;
+                console.log('Background image not found in folder:', error);
+                document.getElementById('bgStatus').textContent = '⚠ กรุณาอัพโหลด';
+                document.getElementById('bgStatus').className = 'template-status missing';
+            }
+
+            // พยายามโหลด Foreground
+            try {
+                foregroundImage = await loadImage(FOREGROUND_IMAGE_URL);
+                document.getElementById('fgPreview').src = FOREGROUND_IMAGE_URL;
+                document.getElementById('fgPreview').style.display = 'block';
+                document.getElementById('fgStatus').textContent = '✓ โหลดสำเร็จ';
+                document.getElementById('fgStatus').className = 'template-status loaded';
+                fgLoaded = true;
+            } catch (error) {
+                console.log('Foreground image not found in folder:', error);
+                document.getElementById('fgStatus').textContent = '⚠ กรุณาอัพโหลด';
+                document.getElementById('fgStatus').className = 'template-status missing';
+            }
+
+            if (bgLoaded && fgLoaded) {
+                showStatus('โหลดเทมเพลตสำเร็จทั้ง 2 รูป!', 'success');
+            } else if (bgLoaded || fgLoaded) {
+                showStatus('โหลดเทมเพลตได้บางส่วน กรุณาอัพโหลดรูปที่ขาดหายไป', 'warning');
+            } else {
+                showStatus('ไม่พบเทมเพลตในโฟลเดอร์ กรุณาอัพโหลดรูปทั้ง 2 รูป', 'warning');
             }
         }
 
@@ -392,8 +517,54 @@
             });
         }
 
+        // อัพโหลด Background
+        document.getElementById('bgUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    loadImage(event.target.result).then(img => {
+                        backgroundImage = img;
+                        document.getElementById('bgPreview').src = event.target.result;
+                        document.getElementById('bgPreview').style.display = 'block';
+                        document.getElementById('bgStatus').textContent = '✓ อัพโหลดสำเร็จ';
+                        document.getElementById('bgStatus').className = 'template-status loaded';
+                        checkTemplatesReady();
+                    });
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // อัพโหลด Foreground
+        document.getElementById('fgUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    loadImage(event.target.result).then(img => {
+                        foregroundImage = img;
+                        document.getElementById('fgPreview').src = event.target.result;
+                        document.getElementById('fgPreview').style.display = 'block';
+                        document.getElementById('fgStatus').textContent = '✓ อัพโหลดสำเร็จ';
+                        document.getElementById('fgStatus').className = 'template-status loaded';
+                        checkTemplatesReady();
+                    });
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function checkTemplatesReady() {
+            if (backgroundImage && foregroundImage) {
+                showStatus('เทมเพลตพร้อมใช้งาน! สามารถถ่ายรูปได้แล้ว', 'success');
+            }
+        }
+
         // โหลด BodyPix model
         async function loadModel() {
+            if (bodyPixModel) return;
+            
             showStatus('กำลังโหลด AI Model...', 'info');
             try {
                 bodyPixModel = await bodyPix.load({
@@ -418,10 +589,6 @@
 
         // เปิดกล้อง
         document.getElementById('startCamera').addEventListener('click', async () => {
-            // โหลดเทมเพลตก่อน
-            const templatesLoaded = await loadTemplateImages();
-            if (!templatesLoaded) return;
-
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: 'user', width: 1280, height: 720 },
@@ -438,7 +605,7 @@
                     await loadModel();
                 }
             } catch (error) {
-                showStatus('ไม่สามารถเข้าถึงกล้องได้: ' + error.message, 'error');
+                showStatus('ไม่สามารถเข้าถึงกล้องได้: ' + error.message + ' (ต้องใช้ HTTPS)', 'error');
             }
         });
 
@@ -458,6 +625,11 @@
         document.getElementById('capture').addEventListener('click', async () => {
             if (!bodyPixModel) {
                 showStatus('กรุณารอ AI Model โหลดเสร็จก่อน', 'error');
+                return;
+            }
+
+            if (!backgroundImage || !foregroundImage) {
+                showStatus('กรุณาอัพโหลดเทมเพลตทั้ง 2 รูปก่อนถ่ายรูป!', 'error');
                 return;
             }
 
@@ -682,8 +854,11 @@
             cutoutImage = null;
         });
 
-        // โหลด model ตอนเริ่มต้น
-        loadModel();
+        // โหลดเทมเพลตและ model ตอนเริ่มต้น
+        window.addEventListener('load', () => {
+            loadTemplateImages();
+            loadModel();
+        });
     </script>
 </body>
 </html>
