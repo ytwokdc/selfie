@@ -321,22 +321,13 @@
             }
 
             try {
-                // พยายามล็อกหน้าจอเป็นแนวตั้ง (ถ้ารองรับ)
-                if (screen.orientation && screen.orientation.lock) {
-                    try {
-                        await screen.orientation.lock('portrait');
-                    } catch (e) {
-                        console.log('Cannot lock orientation:', e);
-                    }
-                }
-
-                // ขอกล้องแนวตั้ง
+                // บังคับกล้องแนวตั้ง 3:4
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: { 
                         facingMode: 'user',
-                        width: { min: 480, ideal: 1080, max: 1920 },
-                        height: { min: 640, ideal: 1920, max: 2560 },
-                        aspectRatio: { ideal: 0.714 } // 857/1200 = 0.714
+                        width: { ideal: 720 },
+                        height: { ideal: 960 },
+                        aspectRatio: { exact: 3/4 }
                     },
                     audio: false
                 });
@@ -344,16 +335,31 @@
                 video.srcObject = stream;
                 video.style.display = 'block';
                 
-                // Log ขนาดกล้อง
-                video.onloadedmetadata = () => {
-                    console.log('Camera size:', video.videoWidth, 'x', video.videoHeight);
-                };
-                
                 document.getElementById('startCamera').disabled = true;
                 document.getElementById('capture').disabled = false;
 
             } catch (error) {
                 console.error('Cannot access camera:', error);
+                // ถ้า exact ไม่ได้ ลองแบบ ideal
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { 
+                            facingMode: 'user',
+                            width: { ideal: 720 },
+                            height: { ideal: 960 },
+                            aspectRatio: { ideal: 3/4 }
+                        },
+                        audio: false
+                    });
+                    
+                    video.srcObject = stream;
+                    video.style.display = 'block';
+                    
+                    document.getElementById('startCamera').disabled = true;
+                    document.getElementById('capture').disabled = false;
+                } catch (e2) {
+                    console.error('Cannot access camera with portrait mode:', e2);
+                }
             }
         });
 
@@ -364,36 +370,10 @@
             document.getElementById('cameraButtons').style.display = 'none';
 
             try {
-                // จับภาพจากวิดีโอ
-                const vw = video.videoWidth;
-                const vh = video.videoHeight;
-                
-                console.log('Video dimensions:', vw, 'x', vh);
-                
-                // ตรวจสอบว่าเป็นแนวนอนหรือไม่ ถ้าใช่ต้องหมุน
-                const isLandscape = vw > vh;
-                
-                console.log('Is landscape?', isLandscape);
-                
-                if (isLandscape) {
-                    // หมุนภาพ 90 องศา
-                    console.log('Rotating image 90 degrees');
-                    captureCanvas.width = vh;
-                    captureCanvas.height = vw;
-                    captureCtx.save();
-                    captureCtx.translate(vh / 2, vw / 2);
-                    captureCtx.rotate(90 * Math.PI / 180);
-                    captureCtx.drawImage(video, -vw / 2, -vh / 2, vw, vh);
-                    captureCtx.restore();
-                } else {
-                    // ภาพแนวตั้งอยู่แล้ว
-                    console.log('Image is already portrait');
-                    captureCanvas.width = vw;
-                    captureCanvas.height = vh;
-                    captureCtx.drawImage(video, 0, 0);
-                }
-
-                console.log('Final canvas size:', captureCanvas.width, 'x', captureCanvas.height);
+                // จับภาพจากวิดีโอตามที่กล้องส่งมา (ไม่หมุน)
+                captureCanvas.width = video.videoWidth;
+                captureCanvas.height = video.videoHeight;
+                captureCtx.drawImage(video, 0, 0);
 
                 // แปลงเป็น Image object
                 capturedImage = await loadImage(captureCanvas.toDataURL());
@@ -441,6 +421,7 @@
             finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
             // แสดงผลลัพธ์ในพื้นที่เทมเพลต
+            const resultDataUrl = finalCanvas.toDataURL('image/png');
             const resultImg = new Image();
             resultImg.onload = () => {
                 previewCanvas.width = CANVAS_WIDTH;
@@ -448,18 +429,24 @@
                 previewCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
                 previewCtx.drawImage(resultImg, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
             };
-            resultImg.src = finalCanvas.toDataURL('image/png');
+            resultImg.src = resultDataUrl;
 
             // ซ่อน controls
             document.getElementById('scaleControls').classList.remove('show');
             document.getElementById('saveButtons').style.display = 'none';
             overlayCanvas.style.display = 'none';
 
-            // ดาวน์โหลดทันที
-            const link = document.createElement('a');
-            link.download = `photo-${Date.now()}.png`;
-            link.href = finalCanvas.toDataURL('image/png');
-            link.click();
+            // ดาวน์โหลดด้วย blob (รองรับมือถือดีกว่า)
+            finalCanvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `photo-${Date.now()}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 'image/png');
 
             // แสดงปุ่มถ่ายใหม่
             setTimeout(() => {
@@ -486,6 +473,7 @@
             scaleSlider.value = 100;
             scaleValue.textContent = '100%';
             
+            // วาดเทมเพลตกลับมา
             drawOverlay();
         });
 
