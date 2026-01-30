@@ -32,13 +32,6 @@
             width: 100%;
         }
 
-        h1 {
-            text-align: center;
-            color: #667eea;
-            margin-bottom: 30px;
-            font-size: 28px;
-        }
-
         .canvas-wrapper {
             position: relative;
             width: 100%;
@@ -49,54 +42,85 @@
             box-shadow: 0 8px 25px rgba(0,0,0,0.2);
         }
 
-        #templateCanvas {
+        #templateCanvas, #previewCanvas {
             width: 100%;
             height: auto;
             display: block;
         }
 
-        #video {
+        #previewCanvas {
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        #video.active {
-            opacity: 0.7;
-        }
-
-        .orientation-hint {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 20px 30px;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            text-align: center;
             display: none;
-            z-index: 10;
         }
 
-        .orientation-hint.show {
+        #video {
+            display: none;
+        }
+
+        #canvas, #finalCanvas, #segmentCanvas {
+            display: none;
+        }
+
+        .controls {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .controls.show {
             display: block;
         }
 
-        .orientation-hint .icon {
-            font-size: 48px;
-            margin-bottom: 10px;
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
 
-        #canvas, #finalCanvas {
-            display: none;
+        .slider-container label {
+            min-width: 80px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 8px;
+            border-radius: 5px;
+            background: #d3d3d3;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+
+        .value-display {
+            min-width: 60px;
+            text-align: center;
+            font-weight: 600;
+            color: #667eea;
         }
 
         .button-group {
@@ -139,65 +163,9 @@
             color: white;
         }
 
-        .btn-danger {
-            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
-            color: white;
-        }
-
         .btn-info {
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
             color: white;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #667eea;
-            font-weight: 600;
-            display: none;
-        }
-
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .status {
-            text-align: center;
-            margin: 15px 0;
-            padding: 12px;
-            border-radius: 8px;
-            font-weight: 600;
-        }
-
-        .status.info {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .status.warning {
-            background: #fff3cd;
-            color: #856404;
         }
 
         .result-section {
@@ -213,96 +181,46 @@
             display: block;
         }
 
-        .instructions {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            color: #495057;
-        }
-
-        .instructions h3 {
-            margin-bottom: 10px;
-            color: #667eea;
-            font-size: 16px;
-        }
-
-        .instructions ol {
-            margin-left: 20px;
-        }
-
-        .instructions li {
-            margin-bottom: 8px;
-            line-height: 1.5;
-        }
-
         @media (max-width: 600px) {
             .container {
                 padding: 20px;
-            }
-
-            h1 {
-                font-size: 22px;
             }
 
             button {
                 padding: 12px 25px;
                 font-size: 16px;
             }
-
-            .orientation-hint {
-                font-size: 14px;
-                padding: 15px 20px;
-            }
-
-            .orientation-hint .icon {
-                font-size: 36px;
-            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📸 Photo Layer Composer</h1>
-
-        <div class="instructions">
-            <h3>📖 วิธีใช้งาน</h3>
-            <ol>
-                <li>กด <strong>"เปิดกล้อง"</strong> → กล้องจะแสดงพรีวิวบนเทมเพลต</li>
-                <li><strong>หมุนมือถือเป็นแนวตั้ง</strong> (Portrait) สำหรับผลลัพธ์ที่ดีที่สุด</li>
-                <li>จัดท่าให้อยู่ในกรอบ → กด <strong>"📷 ถ่ายรูป"</strong></li>
-                <li>รอ AI ตัดพื้นหลัง → กด <strong>"💾 บันทึกรูป"</strong> เสร็จสิ้น!</li>
-            </ol>
-        </div>
-
         <div class="canvas-wrapper">
             <canvas id="templateCanvas"></canvas>
-            <video id="video" autoplay playsinline></video>
-            <div class="orientation-hint" id="orientationHint">
-                <div class="icon">📱</div>
-                <div>หมุนมือถือเป็นแนวตั้ง<br>สำหรับผลลัพธ์ที่ดีที่สุด</div>
-            </div>
+            <canvas id="previewCanvas"></canvas>
         </div>
 
+        <video id="video" autoplay playsinline></video>
         <canvas id="canvas"></canvas>
+        <canvas id="segmentCanvas"></canvas>
         <canvas id="finalCanvas"></canvas>
+
+        <div class="controls" id="scaleControls">
+            <div class="slider-container">
+                <label>ปรับขนาด</label>
+                <button class="btn-primary" id="scaleDown" style="padding: 8px 15px;">-</button>
+                <input type="range" id="scaleSlider" min="20" max="150" value="50" step="5">
+                <button class="btn-primary" id="scaleUp" style="padding: 8px 15px;">+</button>
+                <span class="value-display" id="scaleValue">50%</span>
+            </div>
+        </div>
 
         <div class="button-group" id="cameraButtons">
             <button class="btn-primary" id="startCamera">📹 เปิดกล้อง</button>
             <button class="btn-success" id="capture" disabled>📷 ถ่ายรูป</button>
-            <button class="btn-danger" id="stopCamera" disabled>ปิดกล้อง</button>
         </div>
-
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>กำลังตัดพื้นหลัง... กรุณารอสักครู่</p>
-        </div>
-
-        <div id="statusDiv"></div>
 
         <div class="result-section" id="resultSection">
-            <h3 style="text-align: center; margin-bottom: 15px; color: #495057;">✨ ผลลัพธ์</h3>
             <img id="resultImage">
             <div class="button-group">
                 <button class="btn-info" id="downloadBtn">💾 บันทึกรูป</button>
@@ -320,19 +238,25 @@
         let bodyPixModel = null;
         let backgroundImage = null;
         let foregroundImage = null;
+        let cutoutImageData = null;
+        let objectScale = 0.5; // เริ่มต้นที่ 50% สำหรับ selfie
+        let isPreviewActive = false;
+        let previewInterval = null;
 
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
+        const segmentCanvas = document.getElementById('segmentCanvas');
         const templateCanvas = document.getElementById('templateCanvas');
+        const previewCanvas = document.getElementById('previewCanvas');
         const finalCanvas = document.getElementById('finalCanvas');
         const ctx = canvas.getContext('2d');
+        const segmentCtx = segmentCanvas.getContext('2d');
         const templateCtx = templateCanvas.getContext('2d');
+        const previewCtx = previewCanvas.getContext('2d');
         const finalCtx = finalCanvas.getContext('2d');
 
         // โหลดภาพเทมเพลต
         async function loadTemplateImages() {
-            showStatus('กำลังโหลดเทมเพลต...', 'info');
-            
             try {
                 backgroundImage = await loadImage(BACKGROUND_IMAGE_URL);
                 foregroundImage = await loadImage(FOREGROUND_IMAGE_URL);
@@ -340,11 +264,9 @@
                 // แสดงเทมเพลตรวมกัน
                 drawTemplate();
                 
-                showStatus('โหลดเทมเพลตสำเร็จ! พร้อมใช้งาน', 'success');
                 return true;
             } catch (error) {
-                showStatus('ไม่สามารถโหลดเทมเพลตได้ ตรวจสอบว่ามีไฟล์รูปในโฟลเดอร์ images/', 'error');
-                console.error(error);
+                console.error('Cannot load templates:', error);
                 return false;
             }
         }
@@ -364,10 +286,8 @@
             templateCanvas.width = backgroundImage.width;
             templateCanvas.height = backgroundImage.height;
 
-            // วาด background
+            templateCtx.clearRect(0, 0, templateCanvas.width, templateCanvas.height);
             templateCtx.drawImage(backgroundImage, 0, 0);
-            
-            // วาด foreground
             templateCtx.drawImage(foregroundImage, 0, 0);
         }
 
@@ -375,7 +295,6 @@
         async function loadModel() {
             if (bodyPixModel) return;
             
-            showStatus('กำลังโหลด AI Model...', 'info');
             try {
                 bodyPixModel = await bodyPix.load({
                     architecture: 'MobileNetV1',
@@ -383,97 +302,14 @@
                     multiplier: 0.75,
                     quantBytes: 2
                 });
-                showStatus('โหลด AI Model สำเร็จ!', 'success');
             } catch (error) {
-                showStatus('ไม่สามารถโหลด AI Model ได้: ' + error.message, 'error');
+                console.error('Cannot load AI model:', error);
             }
         }
 
-        // แสดงสถานะ
-        function showStatus(message, type = 'info') {
-            const statusDiv = document.getElementById('statusDiv');
-            statusDiv.className = `status ${type}`;
-            statusDiv.textContent = message;
-            statusDiv.style.display = 'block';
-        }
-
-        // ตรวจสอบ orientation
-        function checkOrientation() {
-            if (window.innerWidth > window.innerHeight) {
-                // Landscape
-                document.getElementById('orientationHint').classList.add('show');
-            } else {
-                // Portrait
-                document.getElementById('orientationHint').classList.remove('show');
-            }
-        }
-
-        // เปิดกล้อง
-        document.getElementById('startCamera').addEventListener('click', async () => {
-            if (!backgroundImage || !foregroundImage) {
-                showStatus('กรุณารอโหลดเทมเพลตให้เสร็จก่อน', 'error');
-                return;
-            }
-
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        facingMode: 'user',
-                        width: { ideal: 1080 },
-                        height: { ideal: 1920 }
-                    },
-                    audio: false
-                });
-                
-                video.srcObject = stream;
-                video.classList.add('active');
-                
-                document.getElementById('startCamera').disabled = true;
-                document.getElementById('capture').disabled = false;
-                document.getElementById('stopCamera').disabled = false;
-                
-                checkOrientation();
-                window.addEventListener('resize', checkOrientation);
-                
-                showStatus('กล้องเปิดแล้ว! จัดท่าแล้วกดถ่ายรูป', 'success');
-
-                // โหลด model ถ้ายังไม่ได้โหลด
-                if (!bodyPixModel) {
-                    await loadModel();
-                }
-            } catch (error) {
-                showStatus('ไม่สามารถเข้าถึงกล้องได้: ' + error.message + ' (ต้องใช้ HTTPS)', 'error');
-            }
-        });
-
-        // ปิดกล้อง
-        document.getElementById('stopCamera').addEventListener('click', () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                video.srcObject = null;
-                video.classList.remove('active');
-                
-                document.getElementById('startCamera').disabled = false;
-                document.getElementById('capture').disabled = true;
-                document.getElementById('stopCamera').disabled = true;
-                document.getElementById('orientationHint').classList.remove('show');
-                
-                window.removeEventListener('resize', checkOrientation);
-                
-                showStatus('ปิดกล้องแล้ว', 'info');
-            }
-        });
-
-        // ถ่ายรูปและประมวลผล
-        document.getElementById('capture').addEventListener('click', async () => {
-            if (!bodyPixModel) {
-                showStatus('กรุณารอ AI Model โหลดเสร็จก่อน', 'error');
-                return;
-            }
-
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('cameraButtons').style.display = 'none';
-            showStatus('กำลังตัดพื้นหลัง...', 'info');
+        // ตัดพื้นหลังและวาดบน preview canvas
+        async function updatePreview() {
+            if (!isPreviewActive || !bodyPixModel || !video.videoWidth) return;
 
             try {
                 // จับภาพจากวิดีโอ
@@ -499,64 +335,239 @@
                     }
                 }
 
-                // สร้าง canvas สำหรับเก็บภาพที่ตัดแล้ว
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = canvas.width;
-                tempCanvas.height = canvas.height;
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCtx.putImageData(imageData, 0, 0);
+                segmentCanvas.width = canvas.width;
+                segmentCanvas.height = canvas.height;
+                segmentCtx.putImageData(imageData, 0, 0);
 
-                // สร้างภาพผลลัพธ์
-                const bgWidth = backgroundImage.width;
-                const bgHeight = backgroundImage.height;
+                // วาดบน preview canvas
+                drawPreviewComposite();
 
-                finalCanvas.width = bgWidth;
-                finalCanvas.height = bgHeight;
+            } catch (error) {
+                console.error('Preview error:', error);
+            }
+        }
 
-                // วาด Layer 1 (Background)
-                finalCtx.clearRect(0, 0, bgWidth, bgHeight);
-                finalCtx.drawImage(backgroundImage, 0, 0, bgWidth, bgHeight);
+        // วาดภาพรวมบน preview canvas
+        function drawPreviewComposite() {
+            const bgWidth = backgroundImage.width;
+            const bgHeight = backgroundImage.height;
 
-                // วาดวัตถุที่ตัดพื้นหลังแล้ว (กึ่งกลาง)
-                const scale = Math.min(bgWidth / canvas.width, bgHeight / canvas.height) * 0.9;
-                const scaledWidth = canvas.width * scale;
-                const scaledHeight = canvas.height * scale;
-                const x = (bgWidth - scaledWidth) / 2;
-                const y = (bgHeight - scaledHeight) / 2;
+            previewCanvas.width = bgWidth;
+            previewCanvas.height = bgHeight;
 
-                finalCtx.drawImage(tempCanvas, x, y, scaledWidth, scaledHeight);
+            // วาด background
+            previewCtx.clearRect(0, 0, bgWidth, bgHeight);
+            previewCtx.drawImage(backgroundImage, 0, 0);
 
-                // วาด Layer 2 (Foreground)
-                finalCtx.drawImage(foregroundImage, 0, 0, bgWidth, bgHeight);
+            // วาดวัตถุที่ตัดแล้ว
+            const scale = Math.min(bgWidth / segmentCanvas.width, bgHeight / segmentCanvas.height) * objectScale;
+            const scaledWidth = segmentCanvas.width * scale;
+            const scaledHeight = segmentCanvas.height * scale;
+            const x = (bgWidth - scaledWidth) / 2;
+            const y = (bgHeight - scaledHeight) / 2;
 
-                // แสดงผลลัพธ์
-                document.getElementById('resultImage').src = finalCanvas.toDataURL('image/png');
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('resultSection').style.display = 'block';
+            previewCtx.drawImage(segmentCanvas, x, y, scaledWidth, scaledHeight);
+
+            // วาด foreground
+            previewCtx.drawImage(foregroundImage, 0, 0);
+        }
+
+        // วาดภาพรวมจาก cutout ที่เก็บไว้
+        function drawFinalComposite() {
+            const bgWidth = backgroundImage.width;
+            const bgHeight = backgroundImage.height;
+
+            previewCanvas.width = bgWidth;
+            previewCanvas.height = bgHeight;
+
+            // วาด background
+            previewCtx.clearRect(0, 0, bgWidth, bgHeight);
+            previewCtx.drawImage(backgroundImage, 0, 0);
+
+            // สร้าง temp canvas จาก cutout data
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = cutoutImageData.width;
+            tempCanvas.height = cutoutImageData.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.putImageData(cutoutImageData, 0, 0);
+
+            // วาดวัตถุที่ตัดแล้ว
+            const scale = Math.min(bgWidth / tempCanvas.width, bgHeight / tempCanvas.height) * objectScale;
+            const scaledWidth = tempCanvas.width * scale;
+            const scaledHeight = tempCanvas.height * scale;
+            const x = (bgWidth - scaledWidth) / 2;
+            const y = (bgHeight - scaledHeight) / 2;
+
+            previewCtx.drawImage(tempCanvas, x, y, scaledWidth, scaledHeight);
+
+            // วาด foreground
+            previewCtx.drawImage(foregroundImage, 0, 0);
+        }
+
+        // เปิดกล้อง
+        document.getElementById('startCamera').addEventListener('click', async () => {
+            if (!backgroundImage || !foregroundImage) {
+                return;
+            }
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 1080 },
+                        height: { ideal: 1920 }
+                    },
+                    audio: false
+                });
+                
+                video.srcObject = stream;
+                
+                document.getElementById('startCamera').disabled = true;
+                document.getElementById('capture').disabled = false;
+
+                // โหลด model ถ้ายังไม่ได้โหลด
+                if (!bodyPixModel) {
+                    await loadModel();
+                }
+
+                // รอ video พร้อม แล้วเริ่ม preview
+                video.onloadedmetadata = () => {
+                    previewCanvas.style.display = 'block';
+                    isPreviewActive = true;
+                    
+                    // Update preview ทุก 1.5 วินาที
+                    previewInterval = setInterval(updatePreview, 1500);
+                };
+
+            } catch (error) {
+                console.error('Cannot access camera:', error);
+            }
+        });
+
+        // ถ่ายรูปและประมวลผล
+        document.getElementById('capture').addEventListener('click', async () => {
+            if (!bodyPixModel) {
+                return;
+            }
+
+            // หยุด preview
+            isPreviewActive = false;
+            if (previewInterval) {
+                clearInterval(previewInterval);
+                previewInterval = null;
+            }
+
+            document.getElementById('cameraButtons').style.display = 'none';
+
+            try {
+                // จับภาพจากวิดีโอ
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0);
+
+                // ตัดพื้นหลังด้วย BodyPix
+                const segmentation = await bodyPixModel.segmentPerson(canvas, {
+                    flipHorizontal: false,
+                    internalResolution: 'medium',
+                    segmentationThreshold: 0.5
+                });
+
+                // สร้างภาพที่ตัดพื้นหลังแล้ว
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const pixel = imageData.data;
+                
+                for (let i = 0; i < pixel.length; i += 4) {
+                    const isPerson = segmentation.data[i / 4];
+                    if (!isPerson) {
+                        pixel[i + 3] = 0;
+                    }
+                }
+
+                // เก็บ cutout data
+                cutoutImageData = imageData;
+
+                // แสดง preview พร้อม slider
+                drawFinalComposite();
+                document.getElementById('scaleControls').classList.add('show');
                 
                 // ซ่อนกล้อง
-                video.classList.remove('active');
+                previewCanvas.style.display = 'block';
                 if (stream) {
                     stream.getTracks().forEach(track => track.stop());
                     video.srcObject = null;
                 }
-                
-                showStatus('สำเร็จ! พร้อมบันทึกรูป', 'success');
 
             } catch (error) {
-                document.getElementById('loading').style.display = 'none';
+                console.error('Processing error:', error);
                 document.getElementById('cameraButtons').style.display = 'flex';
-                showStatus('เกิดข้อผิดพลาด: ' + error.message, 'error');
             }
         });
 
-        // ดาวน์โหลดรูป
+        // Slider สำหรับขนาด
+        const scaleSlider = document.getElementById('scaleSlider');
+        const scaleValue = document.getElementById('scaleValue');
+
+        scaleSlider.addEventListener('input', (e) => {
+            objectScale = e.target.value / 100;
+            scaleValue.textContent = e.target.value + '%';
+            if (cutoutImageData) {
+                drawFinalComposite();
+            }
+        });
+
+        document.getElementById('scaleUp').addEventListener('click', () => {
+            scaleSlider.value = Math.min(150, parseInt(scaleSlider.value) + 10);
+            scaleSlider.dispatchEvent(new Event('input'));
+        });
+
+        document.getElementById('scaleDown').addEventListener('click', () => {
+            scaleSlider.value = Math.max(20, parseInt(scaleSlider.value) - 10);
+            scaleSlider.dispatchEvent(new Event('input'));
+        });
+
+        // บันทึกรูป
         document.getElementById('downloadBtn').addEventListener('click', () => {
+            // สร้างภาพสุดท้าย
+            const bgWidth = backgroundImage.width;
+            const bgHeight = backgroundImage.height;
+
+            finalCanvas.width = bgWidth;
+            finalCanvas.height = bgHeight;
+
+            // วาด background
+            finalCtx.clearRect(0, 0, bgWidth, bgHeight);
+            finalCtx.drawImage(backgroundImage, 0, 0);
+
+            // สร้าง temp canvas จาก cutout data
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = cutoutImageData.width;
+            tempCanvas.height = cutoutImageData.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.putImageData(cutoutImageData, 0, 0);
+
+            // วาดวัตถุ
+            const scale = Math.min(bgWidth / tempCanvas.width, bgHeight / tempCanvas.height) * objectScale;
+            const scaledWidth = tempCanvas.width * scale;
+            const scaledHeight = tempCanvas.height * scale;
+            const x = (bgWidth - scaledWidth) / 2;
+            const y = (bgHeight - scaledHeight) / 2;
+
+            finalCtx.drawImage(tempCanvas, x, y, scaledWidth, scaledHeight);
+
+            // วาด foreground
+            finalCtx.drawImage(foregroundImage, 0, 0);
+
+            // แสดงผลลัพธ์
+            document.getElementById('resultImage').src = finalCanvas.toDataURL('image/png');
+            document.getElementById('scaleControls').classList.remove('show');
+            previewCanvas.style.display = 'none';
+            document.getElementById('resultSection').style.display = 'block';
+
+            // ดาวน์โหลด
             const link = document.createElement('a');
             link.download = `photo-${Date.now()}.png`;
             link.href = finalCanvas.toDataURL('image/png');
             link.click();
-            showStatus('ดาวน์โหลดสำเร็จ!', 'success');
         });
 
         // ถ่ายใหม่
@@ -565,12 +576,16 @@
             document.getElementById('cameraButtons').style.display = 'flex';
             document.getElementById('startCamera').disabled = false;
             document.getElementById('capture').disabled = true;
-            document.getElementById('stopCamera').disabled = true;
+            document.getElementById('scaleControls').classList.remove('show');
+            
+            previewCanvas.style.display = 'none';
+            cutoutImageData = null;
+            objectScale = 0.5;
+            scaleSlider.value = 50;
+            scaleValue.textContent = '50%';
             
             // วาดเทมเพลตใหม่
             drawTemplate();
-            
-            showStatus('พร้อมถ่ายรูปใหม่', 'info');
         });
 
         // โหลดเทมเพลตและ model ตอนเริ่มต้น
