@@ -83,15 +83,27 @@
 
         .slider-container {
             display: flex;
-            align-items: center;
-            gap: 15px;
+            flex-direction: column;
+            gap: 10px;
         }
 
         .slider-container label {
-            min-width: 80px;
             font-weight: 600;
             color: #495057;
             font-size: 14px;
+            text-align: center;
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         input[type="range"] {
@@ -213,16 +225,25 @@
         <div class="controls" id="scaleControls">
             <div class="slider-container">
                 <label>ปรับขนาด</label>
-                <button class="btn-primary" id="scaleDown" style="padding: 8px 15px;">-</button>
-                <input type="range" id="scaleSlider" min="20" max="150" value="100" step="5">
-                <button class="btn-primary" id="scaleUp" style="padding: 8px 15px;">+</button>
-                <span class="value-display" id="scaleValue">100%</span>
+                <div class="slider-row">
+                    <input type="range" id="scaleSlider" min="20" max="150" value="100" step="5">
+                    <span class="value-display" id="scaleValue">100%</span>
+                </div>
+                <div class="slider-row" style="gap: 10px;">
+                    <button class="btn-primary" id="scaleDown" style="padding: 8px 15px; flex: 1;">-</button>
+                    <button class="btn-primary" id="scaleUp" style="padding: 8px 15px; flex: 1;">+</button>
+                </div>
             </div>
         </div>
 
         <div class="button-group" id="cameraButtons">
             <button class="btn-primary" id="startCamera">📹 เปิดกล้อง</button>
             <button class="btn-success" id="capture" disabled>📷 ถ่ายรูป</button>
+        </div>
+
+        <div class="button-group" id="saveButtons" style="display: none;">
+            <button class="btn-success" id="saveBtn">💾 บันทึกรูป</button>
+            <button class="btn-primary" id="cancelBtn">ยกเลิก</button>
         </div>
 
         <div class="result-section" id="resultSection">
@@ -322,8 +343,9 @@
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: { 
                         facingMode: 'user',
-                        width: { ideal: 1080 },
-                        height: { ideal: 1920 }
+                        width: { ideal: 857 },
+                        height: { ideal: 1200 },
+                        aspectRatio: { ideal: 857/1200 }
                     },
                     audio: false
                 });
@@ -361,6 +383,7 @@
                 drawPreview();
                 
                 document.getElementById('scaleControls').classList.add('show');
+                document.getElementById('saveButtons').style.display = 'flex';
                 
                 // ปิดกล้อง
                 if (stream) {
@@ -372,6 +395,56 @@
                 console.error('Capture error:', error);
                 document.getElementById('cameraButtons').style.display = 'flex';
             }
+        });
+
+        // บันทึกรูป (สร้างไฟล์สุดท้าย)
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            if (!capturedImage || !overlayImage) return;
+
+            finalCanvas.width = CANVAS_WIDTH;
+            finalCanvas.height = CANVAS_HEIGHT;
+
+            // คำนวณให้ภาพเต็มพื้นที่
+            const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height) * objectScale;
+            const scaledWidth = capturedImage.width * scale;
+            const scaledHeight = capturedImage.height * scale;
+            const x = (CANVAS_WIDTH - scaledWidth) / 2;
+            const y = (CANVAS_HEIGHT - scaledHeight) / 2;
+
+            // วาดภาพที่ถ่าย
+            finalCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
+
+            // วาด overlay layer
+            finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // แสดงผลลัพธ์
+            document.getElementById('resultImage').src = finalCanvas.toDataURL('image/png');
+            document.getElementById('scaleControls').classList.remove('show');
+            document.getElementById('saveButtons').style.display = 'none';
+            previewCanvas.style.display = 'none';
+            overlayCanvas.style.display = 'none';
+            document.getElementById('resultSection').style.display = 'block';
+        });
+
+        // ยกเลิก
+        document.getElementById('cancelBtn').addEventListener('click', () => {
+            document.getElementById('scaleControls').classList.remove('show');
+            document.getElementById('saveButtons').style.display = 'none';
+            document.getElementById('cameraButtons').style.display = 'flex';
+            document.getElementById('startCamera').disabled = false;
+            document.getElementById('capture').disabled = true;
+            
+            video.style.display = 'none';
+            previewCanvas.style.display = 'none';
+            overlayCanvas.style.display = 'block';
+            
+            capturedImage = null;
+            objectScale = 1.0;
+            scaleSlider.value = 100;
+            scaleValue.textContent = '100%';
+            
+            drawOverlay();
         });
 
         // Slider สำหรับขนาด
@@ -396,35 +469,8 @@
             scaleSlider.dispatchEvent(new Event('input'));
         });
 
-        // บันทึกรูป
+        // ดาวน์โหลดรูป
         document.getElementById('downloadBtn').addEventListener('click', () => {
-            if (!capturedImage || !overlayImage) return;
-
-            finalCanvas.width = CANVAS_WIDTH;
-            finalCanvas.height = CANVAS_HEIGHT;
-
-            // คำนวณให้ภาพเต็มพื้นที่ (crop ถ้าจำเป็น)
-            const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height) * objectScale;
-            const scaledWidth = capturedImage.width * scale;
-            const scaledHeight = capturedImage.height * scale;
-            const x = (CANVAS_WIDTH - scaledWidth) / 2;
-            const y = (CANVAS_HEIGHT - scaledHeight) / 2;
-
-            // วาดภาพที่ถ่าย
-            finalCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
-
-            // วาด overlay layer
-            finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-            // แสดงผลลัพธ์
-            document.getElementById('resultImage').src = finalCanvas.toDataURL('image/png');
-            document.getElementById('scaleControls').classList.remove('show');
-            previewCanvas.style.display = 'none';
-            overlayCanvas.style.display = 'none';
-            document.getElementById('resultSection').style.display = 'block';
-
-            // ดาวน์โหลด
             const link = document.createElement('a');
             link.download = `photo-${Date.now()}.png`;
             link.href = finalCanvas.toDataURL('image/png');
