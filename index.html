@@ -28,7 +28,7 @@
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             padding: 30px;
-            max-width: 1200px;
+            max-width: 800px;
             width: 100%;
         }
 
@@ -39,169 +39,64 @@
             font-size: 28px;
         }
 
-        .template-section {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 25px;
-        }
-
-        .template-section h3 {
-            margin-bottom: 15px;
-            color: #495057;
-        }
-
-        .template-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-
-        .template-item {
-            text-align: center;
-        }
-
-        .template-item label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #495057;
-            font-size: 14px;
-        }
-
-        input[type="file"] {
+        .canvas-wrapper {
+            position: relative;
             width: 100%;
-            padding: 10px;
-            border: 2px dashed #667eea;
-            border-radius: 8px;
-            cursor: pointer;
-            background: white;
-            font-size: 13px;
+            max-width: 600px;
+            margin: 0 auto 20px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
         }
 
-        .template-preview {
-            margin-top: 10px;
-            max-width: 100%;
-            max-height: 120px;
-            border-radius: 8px;
-            border: 2px solid #dee2e6;
-            display: none;
-        }
-
-        .template-status {
-            margin-top: 8px;
-            font-size: 12px;
-            padding: 5px 10px;
-            border-radius: 5px;
-            display: inline-block;
-        }
-
-        .template-status.loaded {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .template-status.missing {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .camera-section {
-            margin-bottom: 25px;
+        #templateCanvas {
+            width: 100%;
+            height: auto;
+            display: block;
         }
 
         #video {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            max-width: 640px;
-            height: auto;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #video.active {
+            opacity: 0.7;
+        }
+
+        .orientation-hint {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px 30px;
             border-radius: 12px;
-            background: #000;
-            display: block;
-            margin: 0 auto 15px;
-        }
-
-        #canvas {
-            display: none;
-        }
-
-        .edit-section {
-            margin-top: 25px;
-            display: none;
-        }
-
-        #previewCanvas {
-            max-width: 100%;
-            height: auto;
-            border-radius: 12px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
-            cursor: move;
-            display: block;
-            margin: 0 auto 20px;
-        }
-
-        #finalCanvas {
-            display: none;
-        }
-
-        .controls {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-        }
-
-        .control-group {
-            margin-bottom: 15px;
-        }
-
-        .control-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #495057;
+            font-size: 16px;
             font-weight: 600;
-            font-size: 14px;
-        }
-
-        .slider-container {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        input[type="range"] {
-            flex: 1;
-            height: 8px;
-            border-radius: 5px;
-            background: #d3d3d3;
-            outline: none;
-            -webkit-appearance: none;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #667eea;
-            cursor: pointer;
-        }
-
-        input[type="range"]::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #667eea;
-            cursor: pointer;
-            border: none;
-        }
-
-        .value-display {
-            min-width: 60px;
             text-align: center;
-            font-weight: 600;
-            color: #667eea;
+            display: none;
+            z-index: 10;
+        }
+
+        .orientation-hint.show {
+            display: block;
+        }
+
+        .orientation-hint .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        #canvas, #finalCanvas {
+            display: none;
         }
 
         .button-group {
@@ -209,14 +104,14 @@
             gap: 10px;
             justify-content: center;
             flex-wrap: wrap;
-            margin: 15px 0;
+            margin: 20px 0;
         }
 
         button {
-            padding: 12px 30px;
+            padding: 14px 35px;
             border: none;
             border-radius: 25px;
-            font-size: 16px;
+            font-size: 18px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
@@ -254,25 +149,6 @@
             color: white;
         }
 
-        .btn-warning {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-        }
-
-        #result {
-            margin-top: 25px;
-            text-align: center;
-            display: none;
-        }
-
-        #resultImage {
-            max-width: 100%;
-            height: auto;
-            border-radius: 12px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
-            margin-bottom: 15px;
-        }
-
         .loading {
             text-align: center;
             padding: 20px;
@@ -299,7 +175,7 @@
         .status {
             text-align: center;
             margin: 15px 0;
-            padding: 10px;
+            padding: 12px;
             border-radius: 8px;
             font-weight: 600;
         }
@@ -324,10 +200,41 @@
             color: #856404;
         }
 
-        @media (max-width: 768px) {
-            .template-grid {
-                grid-template-columns: 1fr;
-            }
+        .result-section {
+            display: none;
+        }
+
+        #resultImage {
+            max-width: 100%;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .instructions {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #495057;
+        }
+
+        .instructions h3 {
+            margin-bottom: 10px;
+            color: #667eea;
+            font-size: 16px;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 8px;
+            line-height: 1.5;
         }
 
         @media (max-width: 600px) {
@@ -340,8 +247,17 @@
             }
 
             button {
-                padding: 10px 20px;
+                padding: 12px 25px;
+                font-size: 16px;
+            }
+
+            .orientation-hint {
                 font-size: 14px;
+                padding: 15px 20px;
+            }
+
+            .orientation-hint .icon {
+                font-size: 36px;
             }
         }
     </style>
@@ -350,96 +266,53 @@
     <div class="container">
         <h1>📸 Photo Layer Composer</h1>
 
-        <!-- อัพโหลดเทมเพลต -->
-        <div class="template-section">
-            <h3>1. เทมเพลต (Background & Foreground)</h3>
-            <div class="template-grid">
-                <div class="template-item">
-                    <label>Layer 1 - พื้นหลัง (Background)</label>
-                    <input type="file" id="bgUpload" accept="image/*">
-                    <img id="bgPreview" class="template-preview">
-                    <div id="bgStatus" class="template-status missing">ยังไม่มีรูป</div>
-                </div>
-                <div class="template-item">
-                    <label>Layer 2 - หน้าสุด (Foreground)</label>
-                    <input type="file" id="fgUpload" accept="image/*">
-                    <img id="fgPreview" class="template-preview">
-                    <div id="fgStatus" class="template-status missing">ยังไม่มีรูป</div>
-                </div>
-            </div>
-            <p style="font-size: 13px; color: #6c757d; margin-top: 10px;">
-                💡 <strong>หมายเหตุ:</strong> วางรูปชื่อ <code>background.png</code> และ <code>foreground.png</code> 
-                ในโฟลเดอร์ <code>images/</code> หรืออัพโหลดที่นี่
-            </p>
+        <div class="instructions">
+            <h3>📖 วิธีใช้งาน</h3>
+            <ol>
+                <li>กด <strong>"เปิดกล้อง"</strong> → กล้องจะแสดงพรีวิวบนเทมเพลต</li>
+                <li><strong>หมุนมือถือเป็นแนวตั้ง</strong> (Portrait) สำหรับผลลัพธ์ที่ดีที่สุด</li>
+                <li>จัดท่าให้อยู่ในกรอบ → กด <strong>"📷 ถ่ายรูป"</strong></li>
+                <li>รอ AI ตัดพื้นหลัง → กด <strong>"💾 บันทึกรูป"</strong> เสร็จสิ้น!</li>
+            </ol>
         </div>
 
-        <!-- กล้อง -->
-        <div class="camera-section">
-            <h3 style="margin-bottom: 15px; color: #495057; text-align: center;">2. ถ่ายรูปวัตถุ</h3>
+        <div class="canvas-wrapper">
+            <canvas id="templateCanvas"></canvas>
             <video id="video" autoplay playsinline></video>
-            <canvas id="canvas"></canvas>
-            
-            <div class="button-group">
-                <button class="btn-primary" id="startCamera">เปิดกล้อง</button>
-                <button class="btn-success" id="capture" disabled>📷 ถ่ายรูป</button>
-                <button class="btn-danger" id="stopCamera" disabled>ปิดกล้อง</button>
-            </div>
-
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p>กำลังประมวลผล... กรุณารอสักครู่</p>
-            </div>
-
-            <div id="statusDiv"></div>
-        </div>
-
-        <!-- แก้ไขตำแหน่งและขนาด -->
-        <div class="edit-section" id="editSection">
-            <h3 style="margin-bottom: 15px; color: #495057; text-align: center;">3. ปรับแต่งภาพ</h3>
-            
-            <canvas id="previewCanvas"></canvas>
-
-            <div class="controls">
-                <div class="control-group">
-                    <label>ขนาดภาพ (Scale)</label>
-                    <div class="slider-container">
-                        <button class="btn-primary" id="scaleDown" style="padding: 8px 15px;">-</button>
-                        <input type="range" id="scaleSlider" min="10" max="200" value="100" step="5">
-                        <button class="btn-primary" id="scaleUp" style="padding: 8px 15px;">+</button>
-                        <span class="value-display" id="scaleValue">100%</span>
-                    </div>
-                </div>
-
-                <div class="control-group">
-                    <label>🖱️ คลิกและลากบนภาพเพื่อย้ายตำแหน่ง</label>
-                    <div class="button-group" style="justify-content: flex-start;">
-                        <button class="btn-warning" id="resetPosition">รีเซ็ตตำแหน่ง</button>
-                        <button class="btn-info" id="centerObject">จัดกึ่งกลาง</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="button-group">
-                <button class="btn-success" id="saveBtn">💾 บันทึกรูป</button>
-                <button class="btn-primary" id="retakeBtn">ถ่ายใหม่</button>
+            <div class="orientation-hint" id="orientationHint">
+                <div class="icon">📱</div>
+                <div>หมุนมือถือเป็นแนวตั้ง<br>สำหรับผลลัพธ์ที่ดีที่สุด</div>
             </div>
         </div>
 
-        <!-- ผลลัพธ์ -->
-        <div id="result">
-            <h3 style="margin-bottom: 15px; color: #495057;">4. ผลลัพธ์</h3>
+        <canvas id="canvas"></canvas>
+        <canvas id="finalCanvas"></canvas>
+
+        <div class="button-group" id="cameraButtons">
+            <button class="btn-primary" id="startCamera">📹 เปิดกล้อง</button>
+            <button class="btn-success" id="capture" disabled>📷 ถ่ายรูป</button>
+            <button class="btn-danger" id="stopCamera" disabled>ปิดกล้อง</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>กำลังตัดพื้นหลัง... กรุณารอสักครู่</p>
+        </div>
+
+        <div id="statusDiv"></div>
+
+        <div class="result-section" id="resultSection">
+            <h3 style="text-align: center; margin-bottom: 15px; color: #495057;">✨ ผลลัพธ์</h3>
             <img id="resultImage">
             <div class="button-group">
-                <button class="btn-info" id="downloadBtn">💾 ดาวน์โหลดรูป</button>
-                <button class="btn-primary" id="newPhotoBtn">ถ่ายรูปใหม่</button>
+                <button class="btn-info" id="downloadBtn">💾 บันทึกรูป</button>
+                <button class="btn-primary" id="retakeBtn">ถ่ายรูปใหม่</button>
             </div>
         </div>
-
-        <canvas id="finalCanvas"></canvas>
     </div>
 
     <script>
-        // กำหนดภาพตายตัว - วางรูปไว้ในโฟลเดอร์ images/
+        // กำหนดภาพเทมเพลต
         const BACKGROUND_IMAGE_URL = './images/background.png';
         const FOREGROUND_IMAGE_URL = './images/foreground.png';
 
@@ -447,63 +320,32 @@
         let bodyPixModel = null;
         let backgroundImage = null;
         let foregroundImage = null;
-        let cutoutImage = null;
-
-        // ตำแหน่งและขนาดของวัตถุที่ตัด
-        let objectX = 0;
-        let objectY = 0;
-        let objectScale = 1.0;
-        let isDragging = false;
-        let dragStartX = 0;
-        let dragStartY = 0;
 
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
-        const previewCanvas = document.getElementById('previewCanvas');
+        const templateCanvas = document.getElementById('templateCanvas');
         const finalCanvas = document.getElementById('finalCanvas');
         const ctx = canvas.getContext('2d');
-        const previewCtx = previewCanvas.getContext('2d');
+        const templateCtx = templateCanvas.getContext('2d');
         const finalCtx = finalCanvas.getContext('2d');
 
-        // โหลดภาพเทมเพลตจากโฟลเดอร์
+        // โหลดภาพเทมเพลต
         async function loadTemplateImages() {
-            let bgLoaded = false;
-            let fgLoaded = false;
-
-            // พยายามโหลด Background
+            showStatus('กำลังโหลดเทมเพลต...', 'info');
+            
             try {
                 backgroundImage = await loadImage(BACKGROUND_IMAGE_URL);
-                document.getElementById('bgPreview').src = BACKGROUND_IMAGE_URL;
-                document.getElementById('bgPreview').style.display = 'block';
-                document.getElementById('bgStatus').textContent = '✓ โหลดสำเร็จ';
-                document.getElementById('bgStatus').className = 'template-status loaded';
-                bgLoaded = true;
-            } catch (error) {
-                console.log('Background image not found in folder:', error);
-                document.getElementById('bgStatus').textContent = '⚠ กรุณาอัพโหลด';
-                document.getElementById('bgStatus').className = 'template-status missing';
-            }
-
-            // พยายามโหลด Foreground
-            try {
                 foregroundImage = await loadImage(FOREGROUND_IMAGE_URL);
-                document.getElementById('fgPreview').src = FOREGROUND_IMAGE_URL;
-                document.getElementById('fgPreview').style.display = 'block';
-                document.getElementById('fgStatus').textContent = '✓ โหลดสำเร็จ';
-                document.getElementById('fgStatus').className = 'template-status loaded';
-                fgLoaded = true;
+                
+                // แสดงเทมเพลตรวมกัน
+                drawTemplate();
+                
+                showStatus('โหลดเทมเพลตสำเร็จ! พร้อมใช้งาน', 'success');
+                return true;
             } catch (error) {
-                console.log('Foreground image not found in folder:', error);
-                document.getElementById('fgStatus').textContent = '⚠ กรุณาอัพโหลด';
-                document.getElementById('fgStatus').className = 'template-status missing';
-            }
-
-            if (bgLoaded && fgLoaded) {
-                showStatus('โหลดเทมเพลตสำเร็จทั้ง 2 รูป!', 'success');
-            } else if (bgLoaded || fgLoaded) {
-                showStatus('โหลดเทมเพลตได้บางส่วน กรุณาอัพโหลดรูปที่ขาดหายไป', 'warning');
-            } else {
-                showStatus('ไม่พบเทมเพลตในโฟลเดอร์ กรุณาอัพโหลดรูปทั้ง 2 รูป', 'warning');
+                showStatus('ไม่สามารถโหลดเทมเพลตได้ ตรวจสอบว่ามีไฟล์รูปในโฟลเดอร์ images/', 'error');
+                console.error(error);
+                return false;
             }
         }
 
@@ -517,48 +359,16 @@
             });
         }
 
-        // อัพโหลด Background
-        document.getElementById('bgUpload').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    loadImage(event.target.result).then(img => {
-                        backgroundImage = img;
-                        document.getElementById('bgPreview').src = event.target.result;
-                        document.getElementById('bgPreview').style.display = 'block';
-                        document.getElementById('bgStatus').textContent = '✓ อัพโหลดสำเร็จ';
-                        document.getElementById('bgStatus').className = 'template-status loaded';
-                        checkTemplatesReady();
-                    });
-                };
-                reader.readAsDataURL(file);
-            }
-        });
+        // วาดเทมเพลต (background + foreground)
+        function drawTemplate() {
+            templateCanvas.width = backgroundImage.width;
+            templateCanvas.height = backgroundImage.height;
 
-        // อัพโหลด Foreground
-        document.getElementById('fgUpload').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    loadImage(event.target.result).then(img => {
-                        foregroundImage = img;
-                        document.getElementById('fgPreview').src = event.target.result;
-                        document.getElementById('fgPreview').style.display = 'block';
-                        document.getElementById('fgStatus').textContent = '✓ อัพโหลดสำเร็จ';
-                        document.getElementById('fgStatus').className = 'template-status loaded';
-                        checkTemplatesReady();
-                    });
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-
-        function checkTemplatesReady() {
-            if (backgroundImage && foregroundImage) {
-                showStatus('เทมเพลตพร้อมใช้งาน! สามารถถ่ายรูปได้แล้ว', 'success');
-            }
+            // วาด background
+            templateCtx.drawImage(backgroundImage, 0, 0);
+            
+            // วาด foreground
+            templateCtx.drawImage(foregroundImage, 0, 0);
         }
 
         // โหลด BodyPix model
@@ -587,18 +397,45 @@
             statusDiv.style.display = 'block';
         }
 
+        // ตรวจสอบ orientation
+        function checkOrientation() {
+            if (window.innerWidth > window.innerHeight) {
+                // Landscape
+                document.getElementById('orientationHint').classList.add('show');
+            } else {
+                // Portrait
+                document.getElementById('orientationHint').classList.remove('show');
+            }
+        }
+
         // เปิดกล้อง
         document.getElementById('startCamera').addEventListener('click', async () => {
+            if (!backgroundImage || !foregroundImage) {
+                showStatus('กรุณารอโหลดเทมเพลตให้เสร็จก่อน', 'error');
+                return;
+            }
+
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'user', width: 1280, height: 720 },
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 1080 },
+                        height: { ideal: 1920 }
+                    },
                     audio: false
                 });
+                
                 video.srcObject = stream;
+                video.classList.add('active');
+                
                 document.getElementById('startCamera').disabled = true;
                 document.getElementById('capture').disabled = false;
                 document.getElementById('stopCamera').disabled = false;
-                showStatus('กล้องเปิดแล้ว พร้อมถ่ายรูป!', 'success');
+                
+                checkOrientation();
+                window.addEventListener('resize', checkOrientation);
+                
+                showStatus('กล้องเปิดแล้ว! จัดท่าแล้วกดถ่ายรูป', 'success');
 
                 // โหลด model ถ้ายังไม่ได้โหลด
                 if (!bodyPixModel) {
@@ -614,9 +451,15 @@
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
                 video.srcObject = null;
+                video.classList.remove('active');
+                
                 document.getElementById('startCamera').disabled = false;
                 document.getElementById('capture').disabled = true;
                 document.getElementById('stopCamera').disabled = true;
+                document.getElementById('orientationHint').classList.remove('show');
+                
+                window.removeEventListener('resize', checkOrientation);
+                
                 showStatus('ปิดกล้องแล้ว', 'info');
             }
         });
@@ -628,12 +471,8 @@
                 return;
             }
 
-            if (!backgroundImage || !foregroundImage) {
-                showStatus('กรุณาอัพโหลดเทมเพลตทั้ง 2 รูปก่อนถ่ายรูป!', 'error');
-                return;
-            }
-
             document.getElementById('loading').style.display = 'block';
+            document.getElementById('cameraButtons').style.display = 'none';
             showStatus('กำลังตัดพื้นหลัง...', 'info');
 
             try {
@@ -667,175 +506,54 @@
                 const tempCtx = tempCanvas.getContext('2d');
                 tempCtx.putImageData(imageData, 0, 0);
 
-                // แปลงเป็น Image object
-                cutoutImage = await loadImage(tempCanvas.toDataURL());
+                // สร้างภาพผลลัพธ์
+                const bgWidth = backgroundImage.width;
+                const bgHeight = backgroundImage.height;
 
-                // ตั้งค่าเริ่มต้น
-                objectScale = 0.8;
-                objectX = backgroundImage.width / 2;
-                objectY = backgroundImage.height / 2;
+                finalCanvas.width = bgWidth;
+                finalCanvas.height = bgHeight;
 
-                // แสดงส่วนแก้ไข
-                document.querySelector('.camera-section').style.display = 'none';
-                document.getElementById('editSection').style.display = 'block';
+                // วาด Layer 1 (Background)
+                finalCtx.clearRect(0, 0, bgWidth, bgHeight);
+                finalCtx.drawImage(backgroundImage, 0, 0, bgWidth, bgHeight);
+
+                // วาดวัตถุที่ตัดพื้นหลังแล้ว (กึ่งกลาง)
+                const scale = Math.min(bgWidth / canvas.width, bgHeight / canvas.height) * 0.9;
+                const scaledWidth = canvas.width * scale;
+                const scaledHeight = canvas.height * scale;
+                const x = (bgWidth - scaledWidth) / 2;
+                const y = (bgHeight - scaledHeight) / 2;
+
+                finalCtx.drawImage(tempCanvas, x, y, scaledWidth, scaledHeight);
+
+                // วาด Layer 2 (Foreground)
+                finalCtx.drawImage(foregroundImage, 0, 0, bgWidth, bgHeight);
+
+                // แสดงผลลัพธ์
+                document.getElementById('resultImage').src = finalCanvas.toDataURL('image/png');
                 document.getElementById('loading').style.display = 'none';
+                document.getElementById('resultSection').style.display = 'block';
                 
-                updatePreview();
-                showStatus('ตัดพื้นหลังสำเร็จ! ปรับแต่งภาพได้เลย', 'success');
+                // ซ่อนกล้อง
+                video.classList.remove('active');
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    video.srcObject = null;
+                }
+                
+                showStatus('สำเร็จ! พร้อมบันทึกรูป', 'success');
 
             } catch (error) {
                 document.getElementById('loading').style.display = 'none';
+                document.getElementById('cameraButtons').style.display = 'flex';
                 showStatus('เกิดข้อผิดพลาด: ' + error.message, 'error');
             }
-        });
-
-        // อัพเดตการแสดงผล
-        function updatePreview() {
-            const bgWidth = backgroundImage.width;
-            const bgHeight = backgroundImage.height;
-
-            previewCanvas.width = bgWidth;
-            previewCanvas.height = bgHeight;
-
-            // วาด Layer 1 (Background)
-            previewCtx.clearRect(0, 0, bgWidth, bgHeight);
-            previewCtx.drawImage(backgroundImage, 0, 0, bgWidth, bgHeight);
-
-            // วาดวัตถุที่ตัดพื้นหลังแล้ว
-            const scaledWidth = cutoutImage.width * objectScale;
-            const scaledHeight = cutoutImage.height * objectScale;
-            const drawX = objectX - scaledWidth / 2;
-            const drawY = objectY - scaledHeight / 2;
-
-            previewCtx.drawImage(cutoutImage, drawX, drawY, scaledWidth, scaledHeight);
-
-            // วาด Layer 2 (Foreground)
-            previewCtx.drawImage(foregroundImage, 0, 0, bgWidth, bgHeight);
-        }
-
-        // Slider สำหรับขนาด
-        const scaleSlider = document.getElementById('scaleSlider');
-        const scaleValue = document.getElementById('scaleValue');
-
-        scaleSlider.addEventListener('input', (e) => {
-            objectScale = e.target.value / 100;
-            scaleValue.textContent = e.target.value + '%';
-            updatePreview();
-        });
-
-        document.getElementById('scaleUp').addEventListener('click', () => {
-            scaleSlider.value = Math.min(200, parseInt(scaleSlider.value) + 10);
-            scaleSlider.dispatchEvent(new Event('input'));
-        });
-
-        document.getElementById('scaleDown').addEventListener('click', () => {
-            scaleSlider.value = Math.max(10, parseInt(scaleSlider.value) - 10);
-            scaleSlider.dispatchEvent(new Event('input'));
-        });
-
-        // Drag & Drop
-        previewCanvas.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            const rect = previewCanvas.getBoundingClientRect();
-            dragStartX = (e.clientX - rect.left) * (previewCanvas.width / rect.width) - objectX;
-            dragStartY = (e.clientY - rect.top) * (previewCanvas.height / rect.height) - objectY;
-            previewCanvas.style.cursor = 'grabbing';
-        });
-
-        previewCanvas.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-                const rect = previewCanvas.getBoundingClientRect();
-                objectX = (e.clientX - rect.left) * (previewCanvas.width / rect.width) - dragStartX;
-                objectY = (e.clientY - rect.top) * (previewCanvas.height / rect.height) - dragStartY;
-                updatePreview();
-            }
-        });
-
-        previewCanvas.addEventListener('mouseup', () => {
-            isDragging = false;
-            previewCanvas.style.cursor = 'move';
-        });
-
-        previewCanvas.addEventListener('mouseleave', () => {
-            isDragging = false;
-            previewCanvas.style.cursor = 'move';
-        });
-
-        // Touch support
-        previewCanvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            isDragging = true;
-            const rect = previewCanvas.getBoundingClientRect();
-            const touch = e.touches[0];
-            dragStartX = (touch.clientX - rect.left) * (previewCanvas.width / rect.width) - objectX;
-            dragStartY = (touch.clientY - rect.top) * (previewCanvas.height / rect.height) - objectY;
-        });
-
-        previewCanvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            if (isDragging) {
-                const rect = previewCanvas.getBoundingClientRect();
-                const touch = e.touches[0];
-                objectX = (touch.clientX - rect.left) * (previewCanvas.width / rect.width) - dragStartX;
-                objectY = (touch.clientY - rect.top) * (previewCanvas.height / rect.height) - dragStartY;
-                updatePreview();
-            }
-        });
-
-        previewCanvas.addEventListener('touchend', () => {
-            isDragging = false;
-        });
-
-        // รีเซ็ตตำแหน่ง
-        document.getElementById('resetPosition').addEventListener('click', () => {
-            objectX = backgroundImage.width / 2;
-            objectY = backgroundImage.height / 2;
-            objectScale = 0.8;
-            scaleSlider.value = 80;
-            scaleValue.textContent = '80%';
-            updatePreview();
-        });
-
-        // จัดกึ่งกลาง
-        document.getElementById('centerObject').addEventListener('click', () => {
-            objectX = backgroundImage.width / 2;
-            objectY = backgroundImage.height / 2;
-            updatePreview();
-        });
-
-        // บันทึกรูป
-        document.getElementById('saveBtn').addEventListener('click', () => {
-            const bgWidth = backgroundImage.width;
-            const bgHeight = backgroundImage.height;
-
-            finalCanvas.width = bgWidth;
-            finalCanvas.height = bgHeight;
-
-            // วาด Layer 1 (Background)
-            finalCtx.clearRect(0, 0, bgWidth, bgHeight);
-            finalCtx.drawImage(backgroundImage, 0, 0, bgWidth, bgHeight);
-
-            // วาดวัตถุ
-            const scaledWidth = cutoutImage.width * objectScale;
-            const scaledHeight = cutoutImage.height * objectScale;
-            const drawX = objectX - scaledWidth / 2;
-            const drawY = objectY - scaledHeight / 2;
-            finalCtx.drawImage(cutoutImage, drawX, drawY, scaledWidth, scaledHeight);
-
-            // วาด Layer 2 (Foreground)
-            finalCtx.drawImage(foregroundImage, 0, 0, bgWidth, bgHeight);
-
-            // แสดงผลลัพธ์
-            document.getElementById('resultImage').src = finalCanvas.toDataURL('image/png');
-            document.getElementById('editSection').style.display = 'none';
-            document.getElementById('result').style.display = 'block';
-            showStatus('บันทึกสำเร็จ!', 'success');
         });
 
         // ดาวน์โหลดรูป
         document.getElementById('downloadBtn').addEventListener('click', () => {
             const link = document.createElement('a');
-            link.download = `photo-layer-${Date.now()}.png`;
+            link.download = `photo-${Date.now()}.png`;
             link.href = finalCanvas.toDataURL('image/png');
             link.click();
             showStatus('ดาวน์โหลดสำเร็จ!', 'success');
@@ -843,21 +561,24 @@
 
         // ถ่ายใหม่
         document.getElementById('retakeBtn').addEventListener('click', () => {
-            document.getElementById('editSection').style.display = 'none';
-            document.querySelector('.camera-section').style.display = 'block';
-            cutoutImage = null;
-        });
-
-        document.getElementById('newPhotoBtn').addEventListener('click', () => {
-            document.getElementById('result').style.display = 'none';
-            document.querySelector('.camera-section').style.display = 'block';
-            cutoutImage = null;
+            document.getElementById('resultSection').style.display = 'none';
+            document.getElementById('cameraButtons').style.display = 'flex';
+            document.getElementById('startCamera').disabled = false;
+            document.getElementById('capture').disabled = true;
+            document.getElementById('stopCamera').disabled = true;
+            
+            // วาดเทมเพลตใหม่
+            drawTemplate();
+            
+            showStatus('พร้อมถ่ายรูปใหม่', 'info');
         });
 
         // โหลดเทมเพลตและ model ตอนเริ่มต้น
-        window.addEventListener('load', () => {
-            loadTemplateImages();
-            loadModel();
+        window.addEventListener('load', async () => {
+            const loaded = await loadTemplateImages();
+            if (loaded) {
+                await loadModel();
+            }
         });
     </script>
 </body>
