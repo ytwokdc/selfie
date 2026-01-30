@@ -320,41 +320,65 @@
             finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
             finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-            // ดาวน์โหลด
-            const link = document.createElement('a');
-            link.download = `photo-${Date.now()}.png`;
-            link.href = finalCanvas.toDataURL('image/png');
-            link.click();
+            // บันทึกด้วย blob
+            finalCanvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `photo-${Date.now()}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(url), 100);
+            }, 'image/png');
 
-            // Reset
-            setTimeout(() => {
-                document.getElementById('saveButtons').style.display = 'none';
-                document.getElementById('cameraButtons').style.display = 'flex';
-                document.getElementById('startCamera').disabled = false;
-                document.getElementById('capture').disabled = true;
-                
-                previewCanvas.style.display = 'none';
-                overlayCanvas.style.display = 'block';
-                
-                capturedImage = null;
-                drawOverlay();
-            }, 300);
+            // เปิดกล้องต่อ
+            reopenCamera();
         });
 
         // ยกเลิก
         document.getElementById('cancelBtn').addEventListener('click', () => {
+            // เปิดกล้องต่อ
+            reopenCamera();
+        });
+
+        async function reopenCamera() {
             document.getElementById('saveButtons').style.display = 'none';
             document.getElementById('cameraButtons').style.display = 'flex';
-            document.getElementById('startCamera').disabled = false;
-            document.getElementById('capture').disabled = true;
             
-            video.style.display = 'none';
             previewCanvas.style.display = 'none';
+            video.style.display = 'block';
             overlayCanvas.style.display = 'block';
             
             capturedImage = null;
-            drawOverlay();
-        });
+
+            // เปิดกล้องใหม่
+            try {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'user',
+                        width: { ideal: 857 },
+                        height: { ideal: 1200 },
+                        aspectRatio: { ideal: 857/1200 }
+                    }
+                });
+                
+                video.srcObject = stream;
+                video.style.display = 'block';
+                
+                document.getElementById('startCamera').disabled = true;
+                document.getElementById('capture').disabled = false;
+
+            } catch (error) {
+                console.error('Reopen camera error:', error);
+                document.getElementById('startCamera').disabled = false;
+                document.getElementById('capture').disabled = true;
+            }
+        }
 
         // โหลด overlay
         window.addEventListener('load', async () => {
