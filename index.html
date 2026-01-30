@@ -40,7 +40,6 @@
             box-shadow: 0 8px 25px rgba(0,0,0,0.2);
             background: #1a1a1a;
             aspect-ratio: 857 / 1200;
-            min-height: 400px;
         }
 
         #video {
@@ -53,7 +52,7 @@
         #previewCanvas {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
             display: none;
         }
 
@@ -93,12 +92,6 @@
             color: #495057;
             font-size: 14px;
             text-align: center;
-        }
-
-        .slider-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
         }
 
         .slider-row {
@@ -182,11 +175,6 @@
             color: white;
         }
 
-        .btn-info {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-        }
-
         @media (max-width: 600px) {
             .container {
                 padding: 20px;
@@ -201,7 +189,7 @@
 </head>
 <body>
     <div class="container">
-        <div class="canvas-wrapper" id="canvasWrapper">
+        <div class="canvas-wrapper">
             <video id="video" autoplay playsinline></video>
             <canvas id="previewCanvas"></canvas>
             <canvas id="overlayCanvas"></canvas>
@@ -217,7 +205,7 @@
                     <input type="range" id="scaleSlider" min="20" max="150" value="100" step="5">
                     <span class="value-display" id="scaleValue">100%</span>
                 </div>
-                <div class="slider-row" style="gap: 10px;">
+                <div class="slider-row">
                     <button class="btn-primary" id="scaleDown" style="padding: 8px 15px; flex: 1;">-</button>
                     <button class="btn-primary" id="scaleUp" style="padding: 8px 15px; flex: 1;">+</button>
                 </div>
@@ -236,7 +224,6 @@
     </div>
 
     <script>
-        // กำหนดภาพ overlay (PNG โปร่งใส)
         const OVERLAY_IMAGE_URL = './images/overlay.png';
         const CANVAS_WIDTH = 857;
         const CANVAS_HEIGHT = 1200;
@@ -251,27 +238,11 @@
         const overlayCanvas = document.getElementById('overlayCanvas');
         const captureCanvas = document.getElementById('captureCanvas');
         const finalCanvas = document.getElementById('finalCanvas');
-        const canvasWrapper = document.getElementById('canvasWrapper');
         
         const previewCtx = previewCanvas.getContext('2d');
         const overlayCtx = overlayCanvas.getContext('2d');
         const captureCtx = captureCanvas.getContext('2d');
         const finalCtx = finalCanvas.getContext('2d');
-
-        // โหลดภาพ overlay
-        async function loadOverlayImage() {
-            try {
-                overlayImage = await loadImage(OVERLAY_IMAGE_URL);
-                
-                // วาด overlay บนกล้อง
-                drawOverlay();
-                
-                return true;
-            } catch (error) {
-                console.error('Cannot load overlay:', error);
-                return false;
-            }
-        }
 
         function loadImage(url) {
             return new Promise((resolve, reject) => {
@@ -283,83 +254,65 @@
             });
         }
 
-        // วาด overlay layer
+        async function loadOverlayImage() {
+            try {
+                overlayImage = await loadImage(OVERLAY_IMAGE_URL);
+                drawOverlay();
+                return true;
+            } catch (error) {
+                console.error('Cannot load overlay:', error);
+                return false;
+            }
+        }
+
         function drawOverlay() {
             if (!overlayImage) return;
-
             overlayCanvas.width = CANVAS_WIDTH;
             overlayCanvas.height = CANVAS_HEIGHT;
             overlayCanvas.style.display = 'block';
-
             overlayCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
             overlayCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         }
 
-        // วาดภาพที่ถ่าย + overlay (fill เต็มพื้นที่)
         function drawPreview() {
             if (!capturedImage || !overlayImage) return;
 
             previewCanvas.width = CANVAS_WIDTH;
             previewCanvas.height = CANVAS_HEIGHT;
 
-            // คำนวณให้ภาพเต็มพื้นที่ (crop ถ้าจำเป็น)
             const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height) * objectScale;
             const scaledWidth = capturedImage.width * scale;
             const scaledHeight = capturedImage.height * scale;
             const x = (CANVAS_WIDTH - scaledWidth) / 2;
             const y = (CANVAS_HEIGHT - scaledHeight) / 2;
 
-            // วาดภาพที่ถ่าย
             previewCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
             previewCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
         }
 
         // เปิดกล้อง
         document.getElementById('startCamera').addEventListener('click', async () => {
-            if (!overlayImage) {
-                return;
-            }
+            if (!overlayImage) return;
 
             try {
-                // บังคับกล้องแนวตั้ง 3:4
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: { 
                         facingMode: 'user',
                         width: { ideal: 720 },
-                        height: { ideal: 960 },
-                        aspectRatio: { exact: 3/4 }
+                        height: { ideal: 960 }
                     },
                     audio: false
                 });
                 
                 video.srcObject = stream;
                 video.style.display = 'block';
+                overlayCanvas.style.display = 'block';
                 
                 document.getElementById('startCamera').disabled = true;
                 document.getElementById('capture').disabled = false;
 
             } catch (error) {
                 console.error('Cannot access camera:', error);
-                // ถ้า exact ไม่ได้ ลองแบบ ideal
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        video: { 
-                            facingMode: 'user',
-                            width: { ideal: 720 },
-                            height: { ideal: 960 },
-                            aspectRatio: { ideal: 3/4 }
-                        },
-                        audio: false
-                    });
-                    
-                    video.srcObject = stream;
-                    video.style.display = 'block';
-                    
-                    document.getElementById('startCamera').disabled = true;
-                    document.getElementById('capture').disabled = false;
-                } catch (e2) {
-                    console.error('Cannot access camera with portrait mode:', e2);
-                }
             }
         });
 
@@ -373,32 +326,23 @@
                 const vw = video.videoWidth;
                 const vh = video.videoHeight;
                 
-                console.log('Camera output:', vw, 'x', vh);
-                
-                // ถ้ากล้องส่งมาแนวนอน (width > height) ต้องหมุน 90 องศา
+                // ถ้ากล้องเป็นแนวนอน (W>H) ให้หมุน 90 องศา
                 if (vw > vh) {
-                    console.log('Camera is LANDSCAPE - rotating 90 degrees');
-                    // หมุนให้เป็นแนวตั้ง
                     captureCanvas.width = vh;
                     captureCanvas.height = vw;
                     captureCtx.save();
-                    captureCtx.translate(vh / 2, vw / 2);
-                    captureCtx.rotate(-90 * Math.PI / 180);
-                    captureCtx.drawImage(video, -vw / 2, -vh / 2, vw, vh);
+                    captureCtx.translate(vh, 0);
+                    captureCtx.rotate(90 * Math.PI / 180);
+                    captureCtx.drawImage(video, 0, 0, vw, vh);
                     captureCtx.restore();
                 } else {
-                    console.log('Camera is PORTRAIT - no rotation needed');
                     captureCanvas.width = vw;
                     captureCanvas.height = vh;
                     captureCtx.drawImage(video, 0, 0);
                 }
-                
-                console.log('Final image:', captureCanvas.width, 'x', captureCanvas.height);
 
-                // แปลงเป็น Image object
                 capturedImage = await loadImage(captureCanvas.toDataURL());
 
-                // แสดง preview
                 video.style.display = 'none';
                 previewCanvas.style.display = 'block';
                 
@@ -407,7 +351,6 @@
                 document.getElementById('scaleControls').classList.add('show');
                 document.getElementById('saveButtons').style.display = 'flex';
                 
-                // ปิดกล้อง
                 if (stream) {
                     stream.getTracks().forEach(track => track.stop());
                     video.srcObject = null;
@@ -419,93 +362,47 @@
             }
         });
 
-        // บันทึกรูป (สร้างไฟล์สุดท้ายและดาวน์โหลดทันที)
+        // บันทึกรูป
         document.getElementById('saveBtn').addEventListener('click', async () => {
             if (!capturedImage || !overlayImage) return;
 
             finalCanvas.width = CANVAS_WIDTH;
             finalCanvas.height = CANVAS_HEIGHT;
 
-            // คำนวณให้ภาพเต็มพื้นที่
             const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height) * objectScale;
             const scaledWidth = capturedImage.width * scale;
             const scaledHeight = capturedImage.height * scale;
             const x = (CANVAS_WIDTH - scaledWidth) / 2;
             const y = (CANVAS_HEIGHT - scaledHeight) / 2;
 
-            // วาดภาพที่ถ่าย
             finalCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
             finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
-
-            // วาด overlay layer
             finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-            // แสดงผลลัพธ์ในพื้นที่เทมเพลต
+            // แสดงผลในพื้นที่เทมเพลต
             const resultDataUrl = finalCanvas.toDataURL('image/png');
-            const resultImg = new Image();
-            resultImg.onload = () => {
-                previewCanvas.width = CANVAS_WIDTH;
-                previewCanvas.height = CANVAS_HEIGHT;
-                previewCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-                previewCtx.drawImage(resultImg, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            };
-            resultImg.src = resultDataUrl;
+            const resultImg = await loadImage(resultDataUrl);
+            previewCanvas.width = CANVAS_WIDTH;
+            previewCanvas.height = CANVAS_HEIGHT;
+            previewCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            previewCtx.drawImage(resultImg, 0, 0);
 
-            // ซ่อน controls
             document.getElementById('scaleControls').classList.remove('show');
             document.getElementById('saveButtons').style.display = 'none';
             overlayCanvas.style.display = 'none';
 
-            // บันทึกรูป - ลอง Share API ก่อน (สำหรับมือถือ)
-            try {
-                const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
-                
-                if (navigator.share && navigator.canShare) {
-                    const file = new File([blob], `photo-${Date.now()}.png`, { type: 'image/png' });
-                    if (navigator.canShare({ files: [file] })) {
-                        await navigator.share({
-                            files: [file],
-                            title: 'Photo',
-                        });
-                        console.log('Shared successfully');
-                    } else {
-                        // ถ้า share ไม่ได้ ให้เปิดใน new tab
-                        openImageInNewTab(blob);
-                    }
-                } else {
-                    // ถ้าไม่มี share API ให้เปิดใน new tab
-                    openImageInNewTab(blob);
-                }
-            } catch (error) {
-                console.log('Share/Save error:', error);
-                // ถ้า error ก็เปิดใน new tab
-                const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
-                openImageInNewTab(blob);
-            }
+            // ดาวน์โหลด
+            const link = document.createElement('a');
+            link.download = `photo-${Date.now()}.png`;
+            link.href = resultDataUrl;
+            link.click();
 
-            // แสดงปุ่มถ่ายใหม่
             setTimeout(() => {
                 document.getElementById('cameraButtons').style.display = 'flex';
                 document.getElementById('startCamera').disabled = false;
                 document.getElementById('capture').disabled = true;
-            }, 500);
+            }, 300);
         });
-
-        // เปิดรูปใน new tab (สำหรับ long press to save)
-        function openImageInNewTab(blob) {
-            const url = URL.createObjectURL(blob);
-            const win = window.open(url, '_blank');
-            if (!win) {
-                // ถ้าเปิด new tab ไม่ได้ ให้ download
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `photo-${Date.now()}.png`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                setTimeout(() => URL.revokeObjectURL(url), 100);
-            }
-        }
 
         // ยกเลิก
         document.getElementById('cancelBtn').addEventListener('click', () => {
@@ -521,14 +418,13 @@
             
             capturedImage = null;
             objectScale = 1.0;
-            scaleSlider.value = 100;
-            scaleValue.textContent = '100%';
+            document.getElementById('scaleSlider').value = 100;
+            document.getElementById('scaleValue').textContent = '100%';
             
-            // วาดเทมเพลตกลับมา
             drawOverlay();
         });
 
-        // Slider สำหรับขนาด
+        // Slider
         const scaleSlider = document.getElementById('scaleSlider');
         const scaleValue = document.getElementById('scaleValue');
 
@@ -552,11 +448,9 @@
 
         // โหลด overlay ตอนเริ่มต้น
         window.addEventListener('load', async () => {
-            // ตั้งค่าขนาด overlay canvas ตั้งแต่ต้น
             overlayCanvas.width = CANVAS_WIDTH;
             overlayCanvas.height = CANVAS_HEIGHT;
             overlayCanvas.style.display = 'block';
-            
             await loadOverlayImage();
         });
     </script>
