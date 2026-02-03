@@ -328,7 +328,7 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    alert('อัปโหลดสำเร็จ! ✅\n\nโฟลเดอร์: zootopia\nชื่อไฟล์: ' + result.fileName);
+                    alert('Upload successful! ✅');
                     reopenCamera();
                 } else {
                     throw new Error(result.error || 'Upload failed');
