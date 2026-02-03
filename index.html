@@ -4,68 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Photo Layer</title>
-    <script>
-        // Define global variables and functions
-        let gapiInited = false;
-        let gisInited = false;
-        let tokenClient;
-
-        function gapiLoaded() {
-            console.log('🔄 gapiLoaded called');
-            gapi.load('client', async () => {
-                try {
-                    await gapi.client.init({
-                        apiKey: 'AIzaSyAE-tNmIHvII9QWERcTeJRPYT8pUKSLL5Y',
-                        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-                    });
-                    gapiInited = true;
-                    console.log('✅ Google API initialized');
-                } catch (error) {
-                    console.error('❌ Google API init error:', error);
-                }
-            });
-        }
-
-        function gisLoaded() {
-            console.log('🔄 gisLoaded called');
-            try {
-                tokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: '219537201166-g2ft45p6efds3etj5g74goqv1hrdv1v0.apps.googleusercontent.com',
-                    scope: 'https://www.googleapis.com/auth/drive.file',
-                    callback: '',
-                });
-                gisInited = true;
-                console.log('✅ Google Identity Services initialized');
-            } catch (error) {
-                console.error('❌ GIS init error:', error);
-            }
-        }
-
-        // Load Google scripts dynamically after page loads
-        window.addEventListener('DOMContentLoaded', () => {
-            console.log('🔄 Loading Google scripts...');
-            
-            // Load GAPI
-            const gapiScript = document.createElement('script');
-            gapiScript.src = 'https://apis.google.com/js/api.js';
-            gapiScript.onload = () => {
-                console.log('📦 GAPI script loaded');
-                gapiLoaded();
-            };
-            gapiScript.onerror = () => console.error('❌ Failed to load GAPI script');
-            document.head.appendChild(gapiScript);
-
-            // Load GIS
-            const gisScript = document.createElement('script');
-            gisScript.src = 'https://accounts.google.com/gsi/client';
-            gisScript.onload = () => {
-                console.log('📦 GIS script loaded');
-                gisLoaded();
-            };
-            gisScript.onerror = () => console.error('❌ Failed to load GIS script');
-            document.head.appendChild(gisScript);
-        });
-    </script>
     <style>
         * {
             margin: 0;
@@ -205,6 +143,9 @@
     </div>
 
     <script>
+        // ⚠️ แทนที่ด้วย Web App URL จาก Apps Script
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';
+        
         const OVERLAY_IMAGE_URL = './images/overlay.png';
         const CANVAS_WIDTH = 857;
         const CANVAS_HEIGHT = 1200;
@@ -254,37 +195,16 @@
             overlayCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         }
 
-        // เปิดกล้อง - ขอแนวตั้ง
+        // เปิดกล้อง
         document.getElementById('startCamera').addEventListener('click', async () => {
             if (!overlayImage) return;
 
             try {
-                // ลองหลายแบบจนกว่าจะได้ (เรียงจากง่ายไปยาก)
                 const constraints = [
-                    // แบบที่ 1: เรียบง่ายที่สุด (Android ชอบ)
-                    {
-                        video: {
-                            facingMode: 'user'
-                        }
-                    },
-                    // แบบที่ 2: ระบุขนาดแต่ไม่บังคับ
-                    {
-                        video: {
-                            facingMode: 'user',
-                            width: { ideal: 720 },
-                            height: { ideal: 1280 }
-                        }
-                    },
-                    // แบบที่ 3: กล้องหลัง
-                    {
-                        video: {
-                            facingMode: 'environment'
-                        }
-                    },
-                    // แบบที่ 4: ไม่ระบุอะไรเลย
-                    {
-                        video: true
-                    }
+                    { video: { facingMode: 'user' } },
+                    { video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } } },
+                    { video: { facingMode: 'environment' } },
+                    { video: true }
                 ];
 
                 let success = false;
@@ -320,14 +240,13 @@
             }
         });
 
-        // ถ่ายรูป - ไม่หมุน ใช้ตามที่กล้องส่งมา
+        // ถ่ายรูป
         document.getElementById('capture').addEventListener('click', async () => {
             if (!video.videoWidth) return;
 
             document.getElementById('cameraButtons').style.display = 'none';
 
             try {
-                // จับภาพตรงๆ ไม่หมุน
                 captureCanvas.width = video.videoWidth;
                 captureCanvas.height = video.videoHeight;
                 captureCtx.drawImage(video, 0, 0);
@@ -337,7 +256,6 @@
                 video.style.display = 'none';
                 previewCanvas.style.display = 'block';
                 
-                // แสดง preview
                 drawPreview();
                 
                 document.getElementById('saveButtons').style.display = 'flex';
@@ -359,7 +277,6 @@
             previewCanvas.width = CANVAS_WIDTH;
             previewCanvas.height = CANVAS_HEIGHT;
 
-            // วาดรูปที่ถ่ายให้เต็มกรอบ
             const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height);
             const scaledWidth = capturedImage.width * scale;
             const scaledHeight = capturedImage.height * scale;
@@ -370,6 +287,60 @@
             previewCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
         }
 
+        // อัปโหลดไป Google Drive ผ่าน Apps Script
+        document.getElementById('uploadDriveBtn').addEventListener('click', async () => {
+            if (!capturedImage || !overlayImage) return;
+
+            const btn = document.getElementById('uploadDriveBtn');
+            const originalText = btn.textContent;
+            btn.textContent = '☁️ กำลังอัปโหลด...';
+            btn.disabled = true;
+
+            try {
+                // สร้างรูปสุดท้าย
+                finalCanvas.width = CANVAS_WIDTH;
+                finalCanvas.height = CANVAS_HEIGHT;
+
+                const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height);
+                const scaledWidth = capturedImage.width * scale;
+                const scaledHeight = capturedImage.height * scale;
+                const x = (CANVAS_WIDTH - scaledWidth) / 2;
+                const y = (CANVAS_HEIGHT - scaledHeight) / 2;
+
+                finalCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
+                finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // แปลงเป็น base64
+                const imageData = finalCanvas.toDataURL('image/png');
+                const filename = `photo-${Date.now()}.png`;
+
+                // ส่งไป Apps Script
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        image: imageData,
+                        filename: filename
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('อัปโหลดสำเร็จ! ✅\n\nโฟลเดอร์: zootopia\nชื่อไฟล์: ' + result.fileName);
+                    reopenCamera();
+                } else {
+                    throw new Error(result.error || 'Upload failed');
+                }
+
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('อัปโหลดไม่สำเร็จ ❌\n\n' + error.message);
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        });
+
         // บันทึกรูป
         document.getElementById('saveBtn').addEventListener('click', async () => {
             if (!capturedImage || !overlayImage) return;
@@ -377,7 +348,6 @@
             finalCanvas.width = CANVAS_WIDTH;
             finalCanvas.height = CANVAS_HEIGHT;
 
-            // วาดรูปที่ถ่ายให้เต็มกรอบ
             const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height);
             const scaledWidth = capturedImage.width * scale;
             const scaledHeight = capturedImage.height * scale;
@@ -388,11 +358,9 @@
             finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
             finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-            // ลองหลายวิธีจนกว่าจะสำเร็จ
             const saved = await trySaveImage();
             
             if (saved) {
-                // เปิดกล้องต่อ
                 reopenCamera();
             }
         });
@@ -400,24 +368,6 @@
         async function trySaveImage() {
             const filename = `photo-${Date.now()}.png`;
             
-            // วิธีที่ 1: ลอง Share API (ดีที่สุดสำหรับมือถือ)
-            try {
-                const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
-                const file = new File([blob], filename, { type: 'image/png' });
-                
-                if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    await navigator.share({
-                        files: [file],
-                        title: 'Photo'
-                    });
-                    console.log('Saved via Share API');
-                    return true;
-                }
-            } catch (e) {
-                console.log('Share API failed, trying next method...');
-            }
-
-            // วิธีที่ 2: Download link
             try {
                 const dataUrl = finalCanvas.toDataURL('image/png');
                 const link = document.createElement('a');
@@ -428,43 +378,16 @@
                 document.body.removeChild(link);
                 console.log('Saved via download link');
                 
-                // รอให้ download เริ่ม
                 await new Promise(resolve => setTimeout(resolve, 300));
                 return true;
             } catch (e) {
-                console.log('Download link failed, trying next method...');
+                console.log('Download failed');
+                return false;
             }
-
-            // วิธีที่ 3: เปิดใน new window (long press to save)
-            try {
-                const dataUrl = finalCanvas.toDataURL('image/png');
-                const win = window.open();
-                if (win) {
-                    win.document.write(`
-                        <html>
-                        <head><title>Photo</title></head>
-                        <body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#000;">
-                            <img src="${dataUrl}" style="max-width:100%;max-height:100%;"/>
-                            <p style="position:absolute;top:10px;left:50%;transform:translateX(-50%);color:white;background:rgba(0,0,0,0.7);padding:10px;border-radius:5px;">
-                                กดค้างที่รูปเพื่อบันทึก
-                            </p>
-                        </body>
-                        </html>
-                    `);
-                    console.log('Opened in new window');
-                    return true;
-                }
-            } catch (e) {
-                console.log('New window failed');
-            }
-
-            alert('ไม่สามารถบันทึกรูปได้ กรุณาลองอีกครั้ง');
-            return false;
         }
 
         // ยกเลิก
         document.getElementById('cancelBtn').addEventListener('click', () => {
-            // เปิดกล้องต่อ
             reopenCamera();
         });
 
@@ -478,17 +401,13 @@
             
             capturedImage = null;
 
-            // เปิดกล้องใหม่
             try {
                 if (stream) {
                     stream.getTracks().forEach(track => track.stop());
                 }
 
-                // ใช้ constraints เรียบง่าย
                 stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: 'user'
-                    }
+                    video: { facingMode: 'user' }
                 });
                 
                 video.srcObject = stream;
@@ -506,7 +425,6 @@
 
         // โหลด overlay
         window.addEventListener('load', async () => {
-            // ตรวจสอบว่ารองรับกล้องหรือไม่
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 alert('เบราว์เซอร์ไม่รองรับการเข้าถึงกล้อง\n\nกรุณาใช้ Chrome หรือ Safari');
                 document.getElementById('startCamera').disabled = true;
@@ -517,190 +435,6 @@
             overlayCanvas.height = CANVAS_HEIGHT;
             overlayCanvas.style.display = 'block';
             await loadOverlayImage();
-        });
-
-        // ============================================
-        // Google Drive Integration
-        // ============================================
-        
-        // ✅ Google Cloud credentials (already defined in head)
-        const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/drive.file';
-
-        // ตรวจสอบว่า setup แล้วหรือยัง
-        function checkGoogleSetup() {
-            if (!gapiInited || !gisInited) {
-                return false;
-            }
-            return true;
-        }
-
-        // หาหรือสร้างโฟลเดอร์ zootopia
-        async function findOrCreateFolder(folderName) {
-            try {
-                // ค้นหาโฟลเดอร์
-                const response = await gapi.client.drive.files.list({
-                    q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-                    fields: 'files(id, name)',
-                    spaces: 'drive'
-                });
-
-                if (response.result.files && response.result.files.length > 0) {
-                    // เจอโฟลเดอร์แล้ว
-                    console.log('✅ Found folder:', response.result.files[0].name);
-                    return response.result.files[0].id;
-                } else {
-                    // ไม่เจอ - สร้างใหม่
-                    console.log('📁 Creating folder:', folderName);
-                    const createResponse = await gapi.client.drive.files.create({
-                        resource: {
-                            name: folderName,
-                            mimeType: 'application/vnd.google-apps.folder'
-                        },
-                        fields: 'id'
-                    });
-                    console.log('✅ Folder created');
-                    return createResponse.result.id;
-                }
-            } catch (error) {
-                console.error('❌ Folder error:', error);
-                throw error;
-            }
-        }
-
-        // อัปโหลดไป Google Drive
-        async function uploadToGoogleDrive(blob, filename) {
-            if (!checkGoogleSetup()) return false;
-
-            return new Promise((resolve, reject) => {
-                tokenClient.callback = async (response) => {
-                    if (response.error !== undefined) {
-                        reject(response);
-                        return;
-                    }
-
-                    try {
-                        // หาหรือสร้างโฟลเดอร์ zootopia
-                        const folderId = await findOrCreateFolder('zootopia');
-
-                        // สร้าง metadata (เพิ่ม parents เพื่อเก็บในโฟลเดอร์)
-                        const metadata = {
-                            name: filename,
-                            mimeType: 'image/png',
-                            parents: [folderId]
-                        };
-
-                        // สร้าง multipart request
-                        const form = new FormData();
-                        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-                        form.append('file', blob);
-
-                        // อัปโหลด
-                        const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-                            method: 'POST',
-                            headers: new Headers({ 
-                                'Authorization': 'Bearer ' + gapi.client.getToken().access_token 
-                            }),
-                            body: form,
-                        });
-
-                        if (!uploadResponse.ok) {
-                            throw new Error('Upload failed: ' + uploadResponse.statusText);
-                        }
-
-                        const result = await uploadResponse.json();
-                        console.log('✅ Upload success:', result);
-                        alert('อัปโหลดไป Google Drive สำเร็จ! ✅\n\nโฟลเดอร์: zootopia\nชื่อไฟล์: ' + filename);
-                        resolve(result);
-                    } catch (error) {
-                        console.error('❌ Upload error:', error);
-                        alert('อัปโหลดไม่สำเร็จ ❌\n\n' + error.message);
-                        reject(error);
-                    }
-                };
-
-                // ขอ access token
-                if (gapi.client.getToken() === null) {
-                    // ครั้งแรก - ขออนุญาต
-                    tokenClient.requestAccessToken({ prompt: 'consent' });
-                } else {
-                    // มี token แล้ว
-                    tokenClient.requestAccessToken({ prompt: '' });
-                }
-            });
-        }
-
-        // โหลด Google APIs เมื่อหน้าเพจพร้อม
-        window.gapiLoaded = gapiLoaded;
-        window.gisLoaded = gisLoaded;
-        
-        // รอจนกว่า Google API จะพร้อม
-        async function waitForGoogleAPI() {
-            let attempts = 0;
-            const maxAttempts = 20; // รอสูงสุด 10 วินาที
-            
-            while (attempts < maxAttempts) {
-                if (gapiInited && gisInited) {
-                    return true;
-                }
-                await new Promise(resolve => setTimeout(resolve, 500));
-                attempts++;
-            }
-            return false;
-        }
-
-        // ปุ่ม Upload Google Drive (รอให้ API พร้อมก่อน)
-        document.getElementById('uploadDriveBtn').addEventListener('click', async () => {
-            if (!capturedImage || !overlayImage) return;
-
-            // แสดง loading
-            const btn = document.getElementById('uploadDriveBtn');
-            const originalText = btn.textContent;
-            btn.textContent = '⏳ กำลังโหลด...';
-            btn.disabled = true;
-
-            // รอให้ Google API พร้อม
-            if (!gapiInited || !gisInited) {
-                const ready = await waitForGoogleAPI();
-                if (!ready) {
-                    alert('ไม่สามารถโหลด Google API ได้\n\nกรุณารีเฟรชหน้าแล้วลองใหม่');
-                    btn.textContent = originalText;
-                    btn.disabled = false;
-                    return;
-                }
-            }
-
-            btn.textContent = originalText;
-            btn.disabled = false;
-
-            // สร้างรูปสุดท้าย
-            finalCanvas.width = CANVAS_WIDTH;
-            finalCanvas.height = CANVAS_HEIGHT;
-
-            const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height);
-            const scaledWidth = capturedImage.width * scale;
-            const scaledHeight = capturedImage.height * scale;
-            const x = (CANVAS_WIDTH - scaledWidth) / 2;
-            const y = (CANVAS_HEIGHT - scaledHeight) / 2;
-
-            finalCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
-            finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-            // แปลงเป็น blob
-            const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
-            const filename = `photo-${Date.now()}.png`;
-            
-            try {
-                btn.textContent = '☁️ กำลังอัปโหลด...';
-                btn.disabled = true;
-                await uploadToGoogleDrive(blob, filename);
-                // อัปโหลดสำเร็จ - เปิดกล้องต่อ
-                reopenCamera();
-            } catch (error) {
-                console.error('Upload failed:', error);
-                btn.textContent = originalText;
-                btn.disabled = false;
-            }
         });
     </script>
 </body>
