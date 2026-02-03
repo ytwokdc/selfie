@@ -144,7 +144,7 @@
 
     <script>
         // ⚠️ แทนที่ด้วย Web App URL จาก Apps Script
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxH1YFbtWakbCdZcSk3WVgqg0YUnvFtotznN-UlnYYBViq0fmxxz-2Kp9cI2AYuTp0vlw/exec';
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';
         
         const OVERLAY_IMAGE_URL = './images/overlay.png';
         const CANVAS_WIDTH = 857;
@@ -293,10 +293,11 @@
 
             const btn = document.getElementById('uploadDriveBtn');
             const originalText = btn.textContent;
-            btn.textContent = '☁️ กำลังอัปโหลด...';
-            btn.disabled = true;
-
+            
             try {
+                btn.textContent = '☁️ กำลังอัปโหลด...';
+                btn.disabled = true;
+
                 // สร้างรูปสุดท้าย
                 finalCanvas.width = CANVAS_WIDTH;
                 finalCanvas.height = CANVAS_HEIGHT;
@@ -336,6 +337,7 @@
             } catch (error) {
                 console.error('Upload error:', error);
                 alert('อัปโหลดไม่สำเร็จ ❌\n\n' + error.message);
+                // Reset ปุ่มถ้า error
                 btn.textContent = originalText;
                 btn.disabled = false;
             }
@@ -400,6 +402,13 @@
             overlayCanvas.style.display = 'block';
             
             capturedImage = null;
+
+            // Reset ปุ่ม Upload และ Save
+            const uploadBtn = document.getElementById('uploadDriveBtn');
+            const saveBtn = document.getElementById('saveBtn');
+            uploadBtn.textContent = '☁️ Upload Drive';
+            uploadBtn.disabled = false;
+            saveBtn.disabled = false;
 
             try {
                 if (stream) {
