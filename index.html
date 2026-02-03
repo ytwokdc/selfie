@@ -140,7 +140,6 @@
         <div class="button-group" id="saveButtons" style="display: none;">
             <button class="btn-success" id="uploadDriveBtn">☁️ Upload Drive</button>
             <button class="btn-success" id="saveBtn">💾 บันทึก</button>
-            <button class="btn-primary" id="shareBtn">📤 แชร์</button>
             <button class="btn-primary" id="cancelBtn">ยกเลิก</button>
         </div>
     </div>
@@ -338,50 +337,6 @@
             }
         });
 
-        // แชร์รูป (จะมี option Google Drive, LINE, Facebook, etc.)
-        document.getElementById('shareBtn').addEventListener('click', async () => {
-            if (!capturedImage || !overlayImage) return;
-
-            finalCanvas.width = CANVAS_WIDTH;
-            finalCanvas.height = CANVAS_HEIGHT;
-
-            // วาดรูปที่ถ่ายให้เต็มกรอบ
-            const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height);
-            const scaledWidth = capturedImage.width * scale;
-            const scaledHeight = capturedImage.height * scale;
-            const x = (CANVAS_WIDTH - scaledWidth) / 2;
-            const y = (CANVAS_HEIGHT - scaledHeight) / 2;
-
-            finalCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
-            finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-            // แชร์ด้วย Share API
-            try {
-                const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
-                const file = new File([blob], `photo-${Date.now()}.png`, { type: 'image/png' });
-                
-                if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    await navigator.share({
-                        files: [file],
-                        title: 'Photo',
-                        text: 'รูปถ่ายจาก Photo Layer'
-                    });
-                    console.log('แชร์สำเร็จ');
-                    // เปิดกล้องต่อ
-                    reopenCamera();
-                } else {
-                    alert('เบราว์เซอร์ไม่รองรับการแชร์\n\nกรุณาใช้ปุ่ม "บันทึกรูป" แทน');
-                }
-            } catch (error) {
-                if (error.name !== 'AbortError') {
-                    console.error('Share error:', error);
-                    alert('ไม่สามารถแชร์ได้\n\nกรุณาใช้ปุ่ม "บันทึกรูป" แทน');
-                }
-                // ถ้ายกเลิกการแชร์ ไม่ต้องทำอะไร
-            }
-        });
-
         async function trySaveImage() {
             const filename = `photo-${Date.now()}.png`;
             
@@ -554,12 +509,11 @@
         function checkGoogleSetup() {
             if (GOOGLE_CLIENT_ID.includes('YOUR_CLIENT_ID') || GOOGLE_API_KEY.includes('YOUR_API_KEY')) {
                 alert('⚠️ ยังไม่ได้ setup Google Drive!\n\n' +
-                      'กรุณาดู GOOGLE_DRIVE.md เพื่อ:\n' +
+                      'กรุณาดู SETUP_GOOGLE_DRIVE.md เพื่อ:\n' +
                       '1. สร้าง Google Cloud Project\n' +
                       '2. เปิด Drive API\n' +
                       '3. สร้าง OAuth credentials\n' +
-                      '4. แทนที่ CLIENT_ID และ API_KEY\n\n' +
-                      'สามารถใช้ปุ่ม "แชร์" แทนได้');
+                      '4. แทนที่ CLIENT_ID และ API_KEY');
                 return false;
             }
             if (!gapiInited || !gisInited) {
@@ -567,6 +521,39 @@
                 return false;
             }
             return true;
+        }
+
+        // หาหรือสร้างโฟลเดอร์ zootopia
+        async function findOrCreateFolder(folderName) {
+            try {
+                // ค้นหาโฟลเดอร์
+                const response = await gapi.client.drive.files.list({
+                    q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+                    fields: 'files(id, name)',
+                    spaces: 'drive'
+                });
+
+                if (response.result.files && response.result.files.length > 0) {
+                    // เจอโฟลเดอร์แล้ว
+                    console.log('✅ Found folder:', response.result.files[0].name);
+                    return response.result.files[0].id;
+                } else {
+                    // ไม่เจอ - สร้างใหม่
+                    console.log('📁 Creating folder:', folderName);
+                    const createResponse = await gapi.client.drive.files.create({
+                        resource: {
+                            name: folderName,
+                            mimeType: 'application/vnd.google-apps.folder'
+                        },
+                        fields: 'id'
+                    });
+                    console.log('✅ Folder created');
+                    return createResponse.result.id;
+                }
+            } catch (error) {
+                console.error('❌ Folder error:', error);
+                throw error;
+            }
         }
 
         // อัปโหลดไป Google Drive
@@ -581,10 +568,14 @@
                     }
 
                     try {
-                        // สร้าง metadata
+                        // หาหรือสร้างโฟลเดอร์ zootopia
+                        const folderId = await findOrCreateFolder('zootopia');
+
+                        // สร้าง metadata (เพิ่ม parents เพื่อเก็บในโฟลเดอร์)
                         const metadata = {
                             name: filename,
-                            mimeType: 'image/png'
+                            mimeType: 'image/png',
+                            parents: [folderId]
                         };
 
                         // สร้าง multipart request
@@ -607,7 +598,7 @@
 
                         const result = await uploadResponse.json();
                         console.log('✅ Upload success:', result);
-                        alert('อัปโหลดไป Google Drive สำเร็จ! ✅\n\nชื่อไฟล์: ' + filename);
+                        alert('อัปโหลดไป Google Drive สำเร็จ! ✅\n\nโฟลเดอร์: zootopia\nชื่อไฟล์: ' + filename);
                         resolve(result);
                     } catch (error) {
                         console.error('❌ Upload error:', error);
