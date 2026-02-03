@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Photo Booth</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto 20px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            background: #1a1a1a;
+            aspect-ratio: 857 / 1200;
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        #previewCanvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+
+        #overlayCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        #arCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        #captureCanvas, #finalCanvas {
+            display: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 10px 0;
+        }
+
+        button {
+            padding: 14px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+            color: white;
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+
+        .filter-btn {
+            background: #e0e0e0;
+            color: #333;
+            padding: 10px 20px;
+            border: 3px solid transparent;
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
+            color: white;
+            border-color: #fff;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            button {
+                padding: 12px 20px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="canvas-wrapper">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="previewCanvas"></canvas>
+            <canvas id="arCanvas"></canvas>
+            <canvas id="overlayCanvas"></canvas>
+        </div>
+
+        <canvas id="captureCanvas"></canvas>
+        <canvas id="finalCanvas"></canvas>
+
+        <div class="button-group" id="cameraButtons">
+            <button class="btn-primary" id="startCamera">📹 เปิดกล้อง</button>
+            <button class="btn-success" id="capture" disabled>📷 ถ่ายรูป</button>
+        </div>
+
+        <div class="filter-buttons" id="filterButtons" style="display: none;">
+            <button class="filter-btn" data-filter="none">❌ ไม่มี</button>
+            <button class="filter-btn active" data-filter="rabbit">🐰 กระต่าย</button>
+            <button class="filter-btn" data-filter="fox">🦊 จิ้งจอก</button>
+        </div>
+
+        <div class="button-group" id="saveButtons" style="display: none;">
+            <button class="btn-success" id="uploadDriveBtn">☁️ Upload Drive</button>
+            <button class="btn-success" id="saveBtn">💾 บันทึก</button>
+            <button class="btn-primary" id="cancelBtn">ยกเลิก</button>
+        </div>
+    </div>
+
+    <script>
+        // ⚙️ การตั้งค่า
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxH1YFbtWakbCdZcSk3WVgqg0YUnvFtotznN-UlnYYBViq0fmxxz-2Kp9cI2AYuTp0vlw/exec';
+        const OVERLAY_IMAGE_URL = './images/overlay.png';
+        const CANVAS_WIDTH = 857;
+        const CANVAS_HEIGHT = 1200;
+
+        // 💡 สำหรับพัฒนาต่อ: เปลี่ยนเป็น 5 ถ้าต้องการถ่ายหลายคน
+        const MAX_FACES = 1;
+
+        let stream = null;
+        let overlayImage = null;
+        let capturedImage = null;
+        let faceMesh = null;
+        let camera = null;
+        let currentFilter = 'rabbit';
+
+        // โหลดรูป AR filters
+        const arImages = {
+            rabbit: new Image(),
+            fox: new Image()
+        };
+        arImages.rabbit.src = './images/rabbit.png';
+        arImages.fox.src = './images/fox.png';
+
+        const video = document.getElementById('video');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const overlayCanvas = document.getElementById('overlayCanvas');
+        const arCanvas = document.getElementById('arCanvas');
+        const captureCanvas = document.getElementById('captureCanvas');
+        const finalCanvas = document.getElementById('finalCanvas');
+        
+        const previewCtx = previewCanvas.getContext('2d');
+        const overlayCtx = overlayCanvas.getContext('2d');
+        const arCtx = arCanvas.getContext('2d');
+        const captureCtx = captureCanvas.getContext('2d');
+        const finalCtx = finalCanvas.getContext('2d');
+
+        // โหลด overlay PNG
+        function loadImage(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = url;
+            });
+        }
+
+        async function loadOverlayImage() {
+            try {
+                overlayImage = await loadImage(OVERLAY_IMAGE_URL);
+                drawOverlay();
+                return true;
+            } catch (error) {
+                console.error('Cannot load overlay:', error);
+                return false;
+            }
+        }
+
+        function drawOverlay() {
+            if (!overlayImage) return;
+            overlayCanvas.width = CANVAS_WIDTH;
+            overlayCanvas.height = CANVAS_HEIGHT;
+            overlayCanvas.style.display = 'block';
+            overlayCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            overlayCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        }
+
+        // Setup MediaPipe Face Mesh
+        function initFaceMesh() {
+            faceMesh = new FaceMesh({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+            });
+
+            faceMesh.setOptions({
+                maxNumFaces: MAX_FACES,
+                refineLandmarks: false,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+
+            faceMesh.onResults(onFaceMeshResults);
+        }
+
+        // วาด AR filters
+        function onFaceMeshResults(results) {
+            if (!video.videoWidth || currentFilter === 'none') {
+                arCanvas.width = video.videoWidth || 640;
+                arCanvas.height = video.videoHeight || 480;
+                arCtx.clearRect(0, 0, arCanvas.width, arCanvas.height);
+                return;
+            }
+
+            arCanvas.width = video.videoWidth;
+            arCanvas.height = video.videoHeight;
+            arCtx.clearRect(0, 0, arCanvas.width, arCanvas.height);
+
+            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                // วาดหูสำหรับทุกหน้าที่เจอ
+                results.multiFaceLandmarks.forEach((landmarks, index) => {
+                    // 💡 สำหรับพัฒนาต่อ - สุ่มหู:
+                    // let filter = (index % 2 === 0) ? 'rabbit' : 'fox';
+                    drawEars(landmarks, currentFilter);
+                });
+            }
+        }
+
+        function drawEars(landmarks, filterType) {
+            const topHead = landmarks[10];
+            const leftSide = landmarks[234];
+            const rightSide = landmarks[454];
+
+            const faceWidth = Math.abs(rightSide.x - leftSide.x) * arCanvas.width;
+            const imageWidth = faceWidth * 1.5;
+            const imageHeight = imageWidth * 1.5;
+
+            const x = (topHead.x * arCanvas.width) - imageWidth/2;
+            const y = (topHead.y * arCanvas.height) - imageHeight;
+
+            const img = arImages[filterType];
+            if (img && img.complete) {
+                arCtx.drawImage(img, x, y, imageWidth, imageHeight);
+            }
+        }
+
+        // เปิดกล้อง
+        document.getElementById('startCamera').addEventListener('click', async () => {
+            if (!overlayImage) return;
+
+            try {
+                const constraints = [
+                    { video: { facingMode: 'user' } },
+                    { video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } } },
+                    { video: { facingMode: 'environment' } },
+                    { video: true }
+                ];
+
+                let success = false;
+                let lastError = null;
+                
+                for (let i = 0; i < constraints.length; i++) {
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia(constraints[i]);
+                        success = true;
+                        break;
+                    } catch (e) {
+                        lastError = e;
+                    }
+                }
+
+                if (!success) throw lastError || new Error('Cannot access camera');
+                
+                video.srcObject = stream;
+                video.style.display = 'block';
+                overlayCanvas.style.display = 'block';
+                arCanvas.style.display = 'block';
+                
+                // เริ่ม Face Mesh
+                initFaceMesh();
+                camera = new Camera(video, {
+                    onFrame: async () => {
+                        await faceMesh.send({ image: video });
+                    },
+                    width: 640,
+                    height: 480
+                });
+                camera.start();
+                
+                document.getElementById('startCamera').disabled = true;
+                document.getElementById('capture').disabled = false;
+                document.getElementById('filterButtons').style.display = 'flex';
+
+            } catch (error) {
+                console.error('Camera error:', error);
+                alert('ไม่สามารถเปิดกล้องได้');
+            }
+        });
+
+        // ถ่ายรูป
+        document.getElementById('capture').addEventListener('click', async () => {
+            if (!video.videoWidth) return;
+
+            document.getElementById('cameraButtons').style.display = 'none';
+            document.getElementById('filterButtons').style.display = 'none';
+
+            try {
+                // หยุด Face Mesh
+                if (camera) {
+                    camera.stop();
+                }
+
+                // จับภาพ video
+                captureCanvas.width = video.videoWidth;
+                captureCanvas.height = video.videoHeight;
+                captureCtx.drawImage(video, 0, 0);
+
+                // จับภาพ AR overlay
+                const arSnapshot = document.createElement('canvas');
+                arSnapshot.width = arCanvas.width;
+                arSnapshot.height = arCanvas.height;
+                const arSnapshotCtx = arSnapshot.getContext('2d');
+                arSnapshotCtx.drawImage(arCanvas, 0, 0);
+
+                // รวมรูป
+                captureCtx.drawImage(arSnapshot, 0, 0);
+                capturedImage = await loadImage(captureCanvas.toDataURL());
+
+                video.style.display = 'none';
+                arCanvas.style.display = 'none';
+                previewCanvas.style.display = 'block';
+                
+                // วาด preview
+                previewCanvas.width = CANVAS_WIDTH;
+                previewCanvas.height = CANVAS_HEIGHT;
+                const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height);
+                const scaledWidth = capturedImage.width * scale;
+                const scaledHeight = capturedImage.height * scale;
+                const x = (CANVAS_WIDTH - scaledWidth) / 2;
+                const y = (CANVAS_HEIGHT - scaledHeight) / 2;
+
+                previewCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                previewCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
+                
+                document.getElementById('saveButtons').style.display = 'flex';
+                
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    video.srcObject = null;
+                }
+
+            } catch (error) {
+                console.error('Capture error:', error);
+                document.getElementById('cameraButtons').style.display = 'flex';
+                document.getElementById('filterButtons').style.display = 'flex';
+            }
+        });
+
+        // เปลี่ยน filter
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+            });
+        });
+
+        // Upload Google Drive
+        document.getElementById('uploadDriveBtn').addEventListener('click', async () => {
+            if (!capturedImage || !overlayImage) return;
+
+            const btn = document.getElementById('uploadDriveBtn');
+            const originalText = btn.textContent;
+            
+            try {
+                btn.textContent = '☁️ กำลังอัปโหลด...';
+                btn.disabled = true;
+
+                // สร้างรูปสุดท้าย (รวม overlay PNG)
+                finalCanvas.width = CANVAS_WIDTH;
+                finalCanvas.height = CANVAS_HEIGHT;
+
+                finalCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                finalCtx.drawImage(previewCanvas, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // แปลงเป็น base64
+                const imageData = finalCanvas.toDataURL('image/png');
+                const filename = `photo-${Date.now()}.png`;
+
+                // ส่งไป Apps Script
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        image: imageData,
+                        filename: filename
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Upload successful! ✅');
+                    reopenCamera();
+                } else {
+                    throw new Error(result.error || 'Upload failed');
+                }
+
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('อัปโหลดไม่สำเร็จ ❌\n\n' + error.message);
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        });
+
+        // บันทึกรูป
+        document.getElementById('saveBtn').addEventListener('click', async () => {
+            if (!capturedImage || !overlayImage) return;
+
+            finalCanvas.width = CANVAS_WIDTH;
+            finalCanvas.height = CANVAS_HEIGHT;
+
+            finalCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            finalCtx.drawImage(previewCanvas, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            const link = document.createElement('a');
+            link.download = `photo-${Date.now()}.png`;
+            link.href = finalCanvas.toDataURL('image/png');
+            link.click();
+            
+            reopenCamera();
+        });
+
+        // ยกเลิก
+        document.getElementById('cancelBtn').addEventListener('click', () => {
+            reopenCamera();
+        });
+
+        async function reopenCamera() {
+            document.getElementById('saveButtons').style.display = 'none';
+            document.getElementById('cameraButtons').style.display = 'flex';
+            document.getElementById('filterButtons').style.display = 'flex';
+            
+            previewCanvas.style.display = 'none';
+            video.style.display = 'block';
+            overlayCanvas.style.display = 'block';
+            arCanvas.style.display = 'block';
+            
+            capturedImage = null;
+
+            // Reset ปุ่ม
+            const uploadBtn = document.getElementById('uploadDriveBtn');
+            const saveBtn = document.getElementById('saveBtn');
+            uploadBtn.textContent = '☁️ Upload Drive';
+            uploadBtn.disabled = false;
+            saveBtn.disabled = false;
+
+            try {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user' }
+                });
+                
+                video.srcObject = stream;
+                video.style.display = 'block';
+                
+                // เริ่ม Face Mesh ใหม่
+                initFaceMesh();
+                camera = new Camera(video, {
+                    onFrame: async () => {
+                        await faceMesh.send({ image: video });
+                    },
+                    width: 640,
+                    height: 480
+                });
+                camera.start();
+                
+                document.getElementById('startCamera').disabled = true;
+                document.getElementById('capture').disabled = false;
+
+            } catch (error) {
+                console.error('Reopen camera error:', error);
+                document.getElementById('startCamera').disabled = false;
+                document.getElementById('capture').disabled = true;
+            }
+        }
+
+        // โหลด overlay
+        window.addEventListener('load', async () => {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert('เบราว์เซอร์ไม่รองรับการเข้าถึงกล้อง\n\nกรุณาใช้ Chrome หรือ Safari');
+                document.getElementById('startCamera').disabled = true;
+                return;
+            }
+
+            overlayCanvas.width = CANVAS_WIDTH;
+            overlayCanvas.height = CANVAS_HEIGHT;
+            overlayCanvas.style.display = 'block';
+            await loadOverlayImage();
+        });
+    </script>
+</body>
+</html>
