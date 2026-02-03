@@ -30,21 +30,6 @@
             width: 100%;
         }
 
-        h1 {
-            font-size: 24px;
-            margin: 0 0 5px 0;
-        }
-
-        .warning {
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-            border-radius: 8px;
-            padding: 8px 12px;
-            font-size: 12px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
         .canvas-wrapper {
             position: relative;
             width: 100%;
@@ -136,10 +121,6 @@
 </head>
 <body>
     <div class="container">
-        <h1 style="text-align: center;">Photo Layer Composer</h1>
-        <div class="warning" id="httpsWarning" style="display: none;">
-            ⚠️ ต้องเปิดผ่าน <strong>HTTPS</strong> หรือ <strong>localhost</strong> เท่านั้น
-        </div>
         <div class="canvas-wrapper">
             <video id="video" autoplay playsinline></video>
             <canvas id="previewCanvas"></canvas>
@@ -464,18 +445,9 @@
         window.addEventListener('load', async () => {
             // ตรวจสอบว่ารองรับกล้องหรือไม่
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                alert('เบราว์เซอร์ไม่รองรับการเข้าถึงกล้อง\n\nกรุณาใช้:\n- Chrome/Safari\n- เปิดผ่าน HTTPS');
+                alert('เบราว์เซอร์ไม่รองรับการเข้าถึงกล้อง\n\nกรุณาใช้ Chrome หรือ Safari');
                 document.getElementById('startCamera').disabled = true;
                 return;
-            }
-
-            // แสดงคำเตือนเฉพาะเมื่อไม่ใช่ HTTPS หรือ localhost
-            const isSecure = location.protocol === 'https:' || 
-                           location.hostname === 'localhost' || 
-                           location.hostname === '127.0.0.1';
-            
-            if (!isSecure) {
-                document.getElementById('httpsWarning').style.display = 'block';
             }
 
             overlayCanvas.width = CANVAS_WIDTH;
