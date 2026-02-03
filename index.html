@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Photo Layer</title>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         * {
             margin: 0;
@@ -136,7 +138,9 @@
         </div>
 
         <div class="button-group" id="saveButtons" style="display: none;">
-            <button class="btn-success" id="saveBtn">💾 บันทึกรูป</button>
+            <button class="btn-success" id="uploadDriveBtn">☁️ Upload Drive</button>
+            <button class="btn-success" id="saveBtn">💾 บันทึก</button>
+            <button class="btn-primary" id="shareBtn">📤 แชร์</button>
             <button class="btn-primary" id="cancelBtn">ยกเลิก</button>
         </div>
     </div>
@@ -334,6 +338,50 @@
             }
         });
 
+        // แชร์รูป (จะมี option Google Drive, LINE, Facebook, etc.)
+        document.getElementById('shareBtn').addEventListener('click', async () => {
+            if (!capturedImage || !overlayImage) return;
+
+            finalCanvas.width = CANVAS_WIDTH;
+            finalCanvas.height = CANVAS_HEIGHT;
+
+            // วาดรูปที่ถ่ายให้เต็มกรอบ
+            const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height);
+            const scaledWidth = capturedImage.width * scale;
+            const scaledHeight = capturedImage.height * scale;
+            const x = (CANVAS_WIDTH - scaledWidth) / 2;
+            const y = (CANVAS_HEIGHT - scaledHeight) / 2;
+
+            finalCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
+            finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // แชร์ด้วย Share API
+            try {
+                const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
+                const file = new File([blob], `photo-${Date.now()}.png`, { type: 'image/png' });
+                
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Photo',
+                        text: 'รูปถ่ายจาก Photo Layer'
+                    });
+                    console.log('แชร์สำเร็จ');
+                    // เปิดกล้องต่อ
+                    reopenCamera();
+                } else {
+                    alert('เบราว์เซอร์ไม่รองรับการแชร์\n\nกรุณาใช้ปุ่ม "บันทึกรูป" แทน');
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Share error:', error);
+                    alert('ไม่สามารถแชร์ได้\n\nกรุณาใช้ปุ่ม "บันทึกรูป" แทน');
+                }
+                // ถ้ายกเลิกการแชร์ ไม่ต้องทำอะไร
+            }
+        });
+
         async function trySaveImage() {
             const filename = `photo-${Date.now()}.png`;
             
@@ -455,6 +503,169 @@
             overlayCanvas.style.display = 'block';
             await loadOverlayImage();
         });
+
+        // ============================================
+        // Google Drive Integration
+        // ============================================
+        
+        // ✅ Google Cloud credentials
+        const GOOGLE_CLIENT_ID = '219537201166-g2ft45p6efds3etj5g74goqv1hrdv1v0.apps.googleusercontent.com';
+        const GOOGLE_API_KEY = 'AIzaSyAE-tNmIHvII9QWERcTeJRPYT8pUKSLL5Y';
+        const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+
+        // โหลด Google API Client
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            try {
+                await gapi.client.init({
+                    apiKey: GOOGLE_API_KEY,
+                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+                });
+                gapiInited = true;
+                console.log('✅ Google API initialized');
+            } catch (error) {
+                console.error('❌ Google API init error:', error);
+            }
+        }
+
+        // โหลด Google Identity Services
+        function gisLoaded() {
+            try {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: GOOGLE_CLIENT_ID,
+                    scope: GOOGLE_SCOPES,
+                    callback: '', // จะ set ภายหลัง
+                });
+                gisInited = true;
+                console.log('✅ Google Identity Services initialized');
+            } catch (error) {
+                console.error('❌ GIS init error:', error);
+            }
+        }
+
+        // ตรวจสอบว่า setup แล้วหรือยัง
+        function checkGoogleSetup() {
+            if (GOOGLE_CLIENT_ID.includes('YOUR_CLIENT_ID') || GOOGLE_API_KEY.includes('YOUR_API_KEY')) {
+                alert('⚠️ ยังไม่ได้ setup Google Drive!\n\n' +
+                      'กรุณาดู GOOGLE_DRIVE.md เพื่อ:\n' +
+                      '1. สร้าง Google Cloud Project\n' +
+                      '2. เปิด Drive API\n' +
+                      '3. สร้าง OAuth credentials\n' +
+                      '4. แทนที่ CLIENT_ID และ API_KEY\n\n' +
+                      'สามารถใช้ปุ่ม "แชร์" แทนได้');
+                return false;
+            }
+            if (!gapiInited || !gisInited) {
+                alert('กำลังโหลด Google API...\n\nกรุณารอสักครู่แล้วลองใหม่');
+                return false;
+            }
+            return true;
+        }
+
+        // อัปโหลดไป Google Drive
+        async function uploadToGoogleDrive(blob, filename) {
+            if (!checkGoogleSetup()) return false;
+
+            return new Promise((resolve, reject) => {
+                tokenClient.callback = async (response) => {
+                    if (response.error !== undefined) {
+                        reject(response);
+                        return;
+                    }
+
+                    try {
+                        // สร้าง metadata
+                        const metadata = {
+                            name: filename,
+                            mimeType: 'image/png'
+                        };
+
+                        // สร้าง multipart request
+                        const form = new FormData();
+                        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                        form.append('file', blob);
+
+                        // อัปโหลด
+                        const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                            method: 'POST',
+                            headers: new Headers({ 
+                                'Authorization': 'Bearer ' + gapi.client.getToken().access_token 
+                            }),
+                            body: form,
+                        });
+
+                        if (!uploadResponse.ok) {
+                            throw new Error('Upload failed: ' + uploadResponse.statusText);
+                        }
+
+                        const result = await uploadResponse.json();
+                        console.log('✅ Upload success:', result);
+                        alert('อัปโหลดไป Google Drive สำเร็จ! ✅\n\nชื่อไฟล์: ' + filename);
+                        resolve(result);
+                    } catch (error) {
+                        console.error('❌ Upload error:', error);
+                        alert('อัปโหลดไม่สำเร็จ ❌\n\n' + error.message);
+                        reject(error);
+                    }
+                };
+
+                // ขอ access token
+                if (gapi.client.getToken() === null) {
+                    // ครั้งแรก - ขออนุญาต
+                    tokenClient.requestAccessToken({ prompt: 'consent' });
+                } else {
+                    // มี token แล้ว
+                    tokenClient.requestAccessToken({ prompt: '' });
+                }
+            });
+        }
+
+        // ปุ่ม Upload Google Drive
+        document.getElementById('uploadDriveBtn').addEventListener('click', async () => {
+            if (!capturedImage || !overlayImage) return;
+
+            // สร้างรูปสุดท้าย
+            finalCanvas.width = CANVAS_WIDTH;
+            finalCanvas.height = CANVAS_HEIGHT;
+
+            const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height);
+            const scaledWidth = capturedImage.width * scale;
+            const scaledHeight = capturedImage.height * scale;
+            const x = (CANVAS_WIDTH - scaledWidth) / 2;
+            const y = (CANVAS_HEIGHT - scaledHeight) / 2;
+
+            finalCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
+            finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // แปลงเป็น blob
+            const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
+            const filename = `photo-${Date.now()}.png`;
+            
+            try {
+                await uploadToGoogleDrive(blob, filename);
+                // อัปโหลดสำเร็จ - เปิดกล้องต่อ
+                reopenCamera();
+            } catch (error) {
+                console.error('Upload failed:', error);
+                // ถ้ายกเลิกการอนุญาต ไม่ต้องแสดง error
+            }
+        });
+
+        // โหลด Google APIs เมื่อหน้าเพจพร้อม
+        if (typeof gapi !== 'undefined') {
+            gapiLoaded();
+        }
+        if (typeof google !== 'undefined') {
+            gisLoaded();
+        }
     </script>
 </body>
 </html>
