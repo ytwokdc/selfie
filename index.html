@@ -4,8 +4,68 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Photo Layer</title>
-    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-    <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+    <script>
+        // Define global variables and functions
+        let gapiInited = false;
+        let gisInited = false;
+        let tokenClient;
+
+        function gapiLoaded() {
+            console.log('🔄 gapiLoaded called');
+            gapi.load('client', async () => {
+                try {
+                    await gapi.client.init({
+                        apiKey: 'AIzaSyAE-tNmIHvII9QWERcTeJRPYT8pUKSLL5Y',
+                        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+                    });
+                    gapiInited = true;
+                    console.log('✅ Google API initialized');
+                } catch (error) {
+                    console.error('❌ Google API init error:', error);
+                }
+            });
+        }
+
+        function gisLoaded() {
+            console.log('🔄 gisLoaded called');
+            try {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: '219537201166-g2ft45p6efds3etj5g74goqv1hrdv1v0.apps.googleusercontent.com',
+                    scope: 'https://www.googleapis.com/auth/drive.file',
+                    callback: '',
+                });
+                gisInited = true;
+                console.log('✅ Google Identity Services initialized');
+            } catch (error) {
+                console.error('❌ GIS init error:', error);
+            }
+        }
+
+        // Load Google scripts dynamically after page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('🔄 Loading Google scripts...');
+            
+            // Load GAPI
+            const gapiScript = document.createElement('script');
+            gapiScript.src = 'https://apis.google.com/js/api.js';
+            gapiScript.onload = () => {
+                console.log('📦 GAPI script loaded');
+                gapiLoaded();
+            };
+            gapiScript.onerror = () => console.error('❌ Failed to load GAPI script');
+            document.head.appendChild(gapiScript);
+
+            // Load GIS
+            const gisScript = document.createElement('script');
+            gisScript.src = 'https://accounts.google.com/gsi/client';
+            gisScript.onload = () => {
+                console.log('📦 GIS script loaded');
+                gisLoaded();
+            };
+            gisScript.onerror = () => console.error('❌ Failed to load GIS script');
+            document.head.appendChild(gisScript);
+        });
+    </script>
     <style>
         * {
             margin: 0;
@@ -463,61 +523,12 @@
         // Google Drive Integration
         // ============================================
         
-        // ✅ Google Cloud credentials
-        const GOOGLE_CLIENT_ID = '219537201166-g2ft45p6efds3etj5g74goqv1hrdv1v0.apps.googleusercontent.com';
-        const GOOGLE_API_KEY = 'AIzaSyAE-tNmIHvII9QWERcTeJRPYT8pUKSLL5Y';
+        // ✅ Google Cloud credentials (already defined in head)
         const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/drive.file';
-        
-        let tokenClient;
-        let gapiInited = false;
-        let gisInited = false;
-
-        // โหลด Google API Client
-        function gapiLoaded() {
-            gapi.load('client', initializeGapiClient);
-        }
-
-        async function initializeGapiClient() {
-            try {
-                await gapi.client.init({
-                    apiKey: GOOGLE_API_KEY,
-                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-                });
-                gapiInited = true;
-                console.log('✅ Google API initialized');
-            } catch (error) {
-                console.error('❌ Google API init error:', error);
-            }
-        }
-
-        // โหลด Google Identity Services
-        function gisLoaded() {
-            try {
-                tokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: GOOGLE_CLIENT_ID,
-                    scope: GOOGLE_SCOPES,
-                    callback: '', // จะ set ภายหลัง
-                });
-                gisInited = true;
-                console.log('✅ Google Identity Services initialized');
-            } catch (error) {
-                console.error('❌ GIS init error:', error);
-            }
-        }
 
         // ตรวจสอบว่า setup แล้วหรือยัง
         function checkGoogleSetup() {
-            if (GOOGLE_CLIENT_ID.includes('YOUR_CLIENT_ID') || GOOGLE_API_KEY.includes('YOUR_API_KEY')) {
-                alert('⚠️ ยังไม่ได้ setup Google Drive!\n\n' +
-                      'กรุณาดู SETUP_GOOGLE_DRIVE.md เพื่อ:\n' +
-                      '1. สร้าง Google Cloud Project\n' +
-                      '2. เปิด Drive API\n' +
-                      '3. สร้าง OAuth credentials\n' +
-                      '4. แทนที่ CLIENT_ID และ API_KEY');
-                return false;
-            }
             if (!gapiInited || !gisInited) {
-                alert('กำลังโหลด Google API...\n\nกรุณารอสักครู่แล้วลองใหม่');
                 return false;
             }
             return true;
