@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Gallery</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .stats {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            border-radius: 50px;
+            display: inline-block;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .search-box {
+            background: white;
+            border-radius: 50px;
+            padding: 15px 30px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .search-box input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 16px;
+        }
+
+        .search-box button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .photo-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+        }
+
+        .photo-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .photo-card img {
+            width: 100%;
+            height: 280px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .photo-info {
+            padding: 15px;
+        }
+
+        .photo-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .photo-date {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: white;
+        }
+
+        .empty-state .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        /* Lightbox */
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .lightbox.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .lightbox-content {
+            position: relative;
+            max-width: 90%;
+            max-height: 90%;
+        }
+
+        .lightbox-content img {
+            max-width: 100%;
+            max-height: 90vh;
+            border-radius: 10px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .lightbox-close {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: white;
+            color: #333;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            transition: transform 0.3s;
+        }
+
+        .lightbox-close:hover {
+            transform: scale(1.1);
+        }
+
+        .lightbox-download {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            transition: transform 0.3s;
+        }
+
+        .lightbox-download:hover {
+            transform: scale(1.05);
+        }
+
+        .error-message {
+            background: rgba(255,100,100,0.9);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px auto;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 32px;
+            }
+            
+            .gallery {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 15px;
+            }
+
+            .photo-card img {
+                height: 150px;
+            }
+
+            .lightbox-close {
+                top: 15px;
+                right: 15px;
+                width: 40px;
+                height: 40px;
+                font-size: 20px;
+            }
+
+            .lightbox-download {
+                bottom: 15px;
+                right: 15px;
+                padding: 12px 24px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📸 Photo Gallery</h1>
+            <p class="subtitle">รูปภาพจากงาน</p>
+        </header>
+
+        <div style="text-align: center;">
+            <div class="stats" id="stats">
+                <span id="photoCount">กำลังโหลด...</span>
+            </div>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="🔍 ค้นหาชื่อไฟล์...">
+            <button onclick="filterPhotos()">ค้นหา</button>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>กำลังโหลดรูปภาพ...</p>
+        </div>
+
+        <div id="gallery" class="gallery"></div>
+
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <div class="icon">📷</div>
+            <h2>ยังไม่มีรูปภาพ</h2>
+            <p>รูปที่ถ่ายจะปรากฏที่นี่</p>
+        </div>
+
+        <div id="errorMessage" style="display: none;" class="error-message"></div>
+    </div>
+
+    <!-- Lightbox -->
+    <div id="lightbox" class="lightbox">
+        <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+        <div class="lightbox-content">
+            <img id="lightboxImg" src="" alt="">
+        </div>
+        <button class="lightbox-download" onclick="downloadCurrentPhoto()">
+            💾 ดาวน์โหลด
+        </button>
+    </div>
+
+    <script>
+        // ⚙️ ตั้งค่า - แก้ URL นี้ให้ตรงกับ Apps Script ของคุณ
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxH1YFbtWakbCdZcSk3WVgqg0YUnvFtotznN-UlnYYBViq0fmxxz-2Kp9cI2AYuTp0vlw/exec';
+
+        let allPhotos = [];
+        let currentPhotoUrl = '';
+
+        // โหลดรูปภาพ
+        async function loadPhotos() {
+            try {
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('gallery').style.display = 'none';
+                document.getElementById('emptyState').style.display = 'none';
+                document.getElementById('errorMessage').style.display = 'none';
+
+                const response = await fetch(APPS_SCRIPT_URL + '?action=getPhotos');
+                const data = await response.json();
+
+                if (data.success) {
+                    allPhotos = data.photos;
+                    displayPhotos(allPhotos);
+                    updateStats(allPhotos.length);
+                } else {
+                    throw new Error(data.error || 'ไม่สามารถโหลดรูปภาพได้');
+                }
+
+            } catch (error) {
+                console.error('Error loading photos:', error);
+                showError('เกิดข้อผิดพลาด: ' + error.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // แสดงรูปภาพ
+        function displayPhotos(photos) {
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = '';
+
+            if (photos.length === 0) {
+                document.getElementById('emptyState').style.display = 'block';
+                return;
+            }
+
+            gallery.style.display = 'grid';
+
+            photos.forEach(photo => {
+                const card = document.createElement('div');
+                card.className = 'photo-card';
+                card.onclick = () => openLightbox(photo.url);
+
+                const img = document.createElement('img');
+                img.src = photo.thumbnail;
+                img.alt = photo.name;
+                img.loading = 'lazy';
+
+                const info = document.createElement('div');
+                info.className = 'photo-info';
+
+                const name = document.createElement('div');
+                name.className = 'photo-name';
+                name.textContent = photo.name;
+
+                const date = document.createElement('div');
+                date.className = 'photo-date';
+                date.textContent = formatDate(photo.createdDate);
+
+                info.appendChild(name);
+                info.appendChild(date);
+                card.appendChild(img);
+                card.appendChild(info);
+                gallery.appendChild(card);
+            });
+        }
+
+        // อัปเดตสถิติ
+        function updateStats(count) {
+            document.getElementById('photoCount').textContent = 
+                `รูปภาพทั้งหมด ${count} รูป`;
+        }
+
+        // ค้นหา/กรอง
+        function filterPhotos() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            if (!searchTerm) {
+                displayPhotos(allPhotos);
+                return;
+            }
+
+            const filtered = allPhotos.filter(photo => 
+                photo.name.toLowerCase().includes(searchTerm)
+            );
+
+            displayPhotos(filtered);
+        }
+
+        // Enter key ค้นหา
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                filterPhotos();
+            }
+        });
+
+        // Lightbox
+        function openLightbox(url) {
+            currentPhotoUrl = url;
+            document.getElementById('lightboxImg').src = url;
+            document.getElementById('lightbox').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+
+        // Download รูป
+        function downloadCurrentPhoto() {
+            if (!currentPhotoUrl) return;
+            
+            const link = document.createElement('a');
+            link.href = currentPhotoUrl;
+            link.download = 'photo-' + Date.now() + '.png';
+            link.target = '_blank';
+            link.click();
+        }
+
+        // ESC ปิด lightbox
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        });
+
+        // คลิกพื้นหลัง lightbox ปิด
+        document.getElementById('lightbox').addEventListener('click', (e) => {
+            if (e.target.id === 'lightbox') {
+                closeLightbox();
+            }
+        });
+
+        // Format วันที่
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const options = { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            return date.toLocaleDateString('th-TH', options);
+        }
+
+        // แสดง error
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // โหลดรูปเมื่อเปิดหน้า
+        window.addEventListener('load', () => {
+            loadPhotos();
+        });
+    </script>
+</body>
+</html>
