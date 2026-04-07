@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Layer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto 20px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            background: #1a1a1a;
+            aspect-ratio: 857 / 1200;
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        /* ✅ กล้องหน้าจะกลับภาพ */
+        #video.mirror {
+            transform: scaleX(-1);
+        }
+
+        #previewCanvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+
+        #overlayCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        #captureCanvas, #finalCanvas {
+            display: none;
+        }
+
+        /* ✅ ปุ่มสลับกล้อง */
+        .flip-camera-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.9);
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 10;
+            display: none;
+        }
+
+        .flip-camera-btn.active {
+            display: block;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+
+        button {
+            padding: 14px 35px;
+            border: none;
+            border-radius: 25px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+            color: white;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            button {
+                padding: 12px 25px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="canvas-wrapper">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="previewCanvas"></canvas>
+            <canvas id="overlayCanvas"></canvas>
+            
+            <!-- ✅ ปุ่มสลับกล้อง -->
+            <button class="flip-camera-btn" id="flipCamera">🔄</button>
+        </div>
+
+        <canvas id="captureCanvas"></canvas>
+        <canvas id="finalCanvas"></canvas>
+
+        <div class="button-group" id="cameraButtons">
+            <button class="btn-primary" id="startCamera">📹 เปิดกล้อง</button>
+            <button class="btn-success" id="capture" disabled>📷 ถ่ายรูป</button>
+        </div>
+
+        <!-- ✅ ลบปุ่ม Upload ออก เหลือแค่ บันทึก (ทำ 2 อย่างพร้อมกัน) -->
+        <div class="button-group" id="saveButtons" style="display: none;">
+            <button class="btn-success" id="saveBtn">💾 บันทึก</button>
+            <button class="btn-primary" id="cancelBtn">ยกเลิก</button>
+        </div>
+    </div>
+
+    <script>
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxH1YFbtWakbCdZcSk3WVgqg0YUnvFtotznN-UlnYYBViq0fmxxz-2Kp9cI2AYuTp0vlw/exec';
+        const OVERLAY_IMAGE_URL = './images/overlay.png';
+        const CANVAS_WIDTH = 857;
+        const CANVAS_HEIGHT = 1200;
+
+        let stream = null;
+        let overlayImage = null;
+        let capturedImage = null;
+        let facingMode = 'user'; // ✅ 'user' = หน้า, 'environment' = หลัง
+
+        const video = document.getElementById('video');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const overlayCanvas = document.getElementById('overlayCanvas');
+        const captureCanvas = document.getElementById('captureCanvas');
+        const finalCanvas = document.getElementById('finalCanvas');
+        const flipCameraBtn = document.getElementById('flipCamera');
+        
+        const previewCtx = previewCanvas.getContext('2d');
+        const overlayCtx = overlayCanvas.getContext('2d');
+        const captureCtx = captureCanvas.getContext('2d');
+        const finalCtx = finalCanvas.getContext('2d');
+
+        function loadImage(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = url;
+            });
+        }
+
+        async function loadOverlayImage() {
+            try {
+                overlayImage = await loadImage(OVERLAY_IMAGE_URL);
+                drawOverlay();
+                return true;
+            } catch (error) {
+                console.error('Cannot load overlay:', error);
+                return false;
+            }
+        }
+
+        function drawOverlay() {
+            if (!overlayImage) return;
+            overlayCanvas.width = CANVAS_WIDTH;
+            overlayCanvas.height = CANVAS_HEIGHT;
+            overlayCanvas.style.display = 'block';
+            overlayCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            overlayCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        }
+
+        // ✅ เปิดกล้อง
+        async function openCamera(facing) {
+            try {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: facing }
+                });
+                
+                video.srcObject = stream;
+                video.style.display = 'block';
+                overlayCanvas.style.display = 'block';
+                flipCameraBtn.classList.add('active');
+                
+                // ✅ กล้องหน้า = mirror
+                if (facing === 'user') {
+                    video.classList.add('mirror');
+                } else {
+                    video.classList.remove('mirror');
+                }
+                
+                document.getElementById('startCamera').disabled = true;
+                document.getElementById('capture').disabled = false;
+
+                return true;
+
+            } catch (error) {
+                console.error('Camera error:', error);
+                alert('ไม่สามารถเปิดกล้องได้');
+                return false;
+            }
+        }
+
+        document.getElementById('startCamera').addEventListener('click', async () => {
+            if (!overlayImage) return;
+            await openCamera(facingMode);
+        });
+
+        // ✅ สลับกล้อง
+        document.getElementById('flipCamera').addEventListener('click', async () => {
+            facingMode = facingMode === 'user' ? 'environment' : 'user';
+            await openCamera(facingMode);
+        });
+
+        // ✅ ถ่ายรูป
+        document.getElementById('capture').addEventListener('click', async () => {
+            if (!video.videoWidth) return;
+
+            document.getElementById('cameraButtons').style.display = 'none';
+            flipCameraBtn.classList.remove('active');
+
+            try {
+                captureCanvas.width = video.videoWidth;
+                captureCanvas.height = video.videoHeight;
+                
+                // ✅ ถ้ากล้องหน้า ต้องกลับภาพกลับ (เพราะ video มี mirror)
+                if (facingMode === 'user') {
+                    captureCtx.save();
+                    captureCtx.scale(-1, 1);
+                    captureCtx.drawImage(video, -video.videoWidth, 0);
+                    captureCtx.restore();
+                } else {
+                    captureCtx.drawImage(video, 0, 0);
+                }
+
+                capturedImage = await loadImage(captureCanvas.toDataURL());
+
+                video.style.display = 'none';
+                previewCanvas.style.display = 'block';
+                
+                drawPreview();
+                
+                document.getElementById('saveButtons').style.display = 'flex';
+                
+                // ✅ หยุดกล้องชั่วคราว
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    video.srcObject = null;
+                }
+
+            } catch (error) {
+                console.error('Capture error:', error);
+                document.getElementById('cameraButtons').style.display = 'flex';
+                flipCameraBtn.classList.add('active');
+            }
+        });
+
+        function drawPreview() {
+            if (!capturedImage || !overlayImage) return;
+
+            previewCanvas.width = CANVAS_WIDTH;
+            previewCanvas.height = CANVAS_HEIGHT;
+
+            const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height);
+            const scaledWidth = capturedImage.width * scale;
+            const scaledHeight = capturedImage.height * scale;
+            const x = (CANVAS_WIDTH - scaledWidth) / 2;
+            const y = (CANVAS_HEIGHT - scaledHeight) / 2;
+
+            previewCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            previewCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
+        }
+
+        // ✅ บันทึก = บันทึกในเครื่อง + Upload Drive พร้อมกัน
+        document.getElementById('saveBtn').addEventListener('click', async () => {
+            if (!capturedImage || !overlayImage) return;
+
+            const btn = document.getElementById('saveBtn');
+            const originalText = btn.textContent;
+            
+            try {
+                btn.textContent = '💾 กำลังบันทึก...';
+                btn.disabled = true;
+
+                // สร้างรูปสุดท้าย
+                finalCanvas.width = CANVAS_WIDTH;
+                finalCanvas.height = CANVAS_HEIGHT;
+
+                const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height);
+                const scaledWidth = capturedImage.width * scale;
+                const scaledHeight = capturedImage.height * scale;
+                const x = (CANVAS_WIDTH - scaledWidth) / 2;
+                const y = (CANVAS_HEIGHT - scaledHeight) / 2;
+
+                finalCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
+                finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                const imageData = finalCanvas.toDataURL('image/png');
+                const filename = `photo-${Date.now()}.png`;
+
+                // ✅ ทำ 2 อย่างพร้อมกัน
+                await Promise.all([
+                    saveToDevice(imageData, filename),
+                    uploadToDrive(imageData, filename)
+                ]);
+
+                alert('บันทึกสำเร็จ! ✅');
+                resetCamera();
+
+            } catch (error) {
+                console.error('Save error:', error);
+                alert('เกิดข้อผิดพลาด ❌\n\n' + error.message);
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        });
+
+        // ✅ บันทึกในเครื่อง (ลองใช้ Web Share API ก่อน)
+        async function saveToDevice(imageData, filename) {
+            try {
+                // ลองใช้ Web Share API (สำหรับ mobile)
+                if (navigator.share && navigator.canShare) {
+                    const blob = await (await fetch(imageData)).blob();
+                    const file = new File([blob], filename, { type: 'image/png' });
+                    
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            files: [file],
+                            title: 'Photo',
+                            text: 'Save photo'
+                        });
+                        console.log('Shared via Web Share API');
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.log('Web Share API not available, using download');
+            }
+
+            // Fallback: ใช้ download link
+            const link = document.createElement('a');
+            link.href = imageData;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            console.log('Saved via download link');
+        }
+
+        // ✅ Upload ไป Drive
+        async function uploadToDrive(imageData, filename) {
+            try {
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        image: imageData,
+                        filename: filename
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || 'Upload failed');
+                }
+
+                console.log('Uploaded to Drive successfully');
+
+            } catch (error) {
+                console.error('Upload error:', error);
+                throw error;
+            }
+        }
+
+        // ยกเลิก
+        document.getElementById('cancelBtn').addEventListener('click', () => {
+            resetCamera();
+        });
+
+        // ✅ Reset กล้อง
+        async function resetCamera() {
+            document.getElementById('saveButtons').style.display = 'none';
+            document.getElementById('cameraButtons').style.display = 'flex';
+            
+            previewCanvas.style.display = 'none';
+            overlayCanvas.style.display = 'block';
+            
+            capturedImage = null;
+
+            const saveBtn = document.getElementById('saveBtn');
+            saveBtn.textContent = '💾 บันทึก';
+            saveBtn.disabled = false;
+
+            // ✅ เปิดกล้องใหม่
+            await openCamera(facingMode);
+        }
+
+        // โหลด overlay
+        window.addEventListener('load', async () => {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert('เบราว์เซอร์ไม่รองรับการเข้าถึงกล้อง');
+                document.getElementById('startCamera').disabled = true;
+                return;
+            }
+
+            overlayCanvas.width = CANVAS_WIDTH;
+            overlayCanvas.height = CANVAS_HEIGHT;
+            overlayCanvas.style.display = 'block';
+            await loadOverlayImage();
+        });
+    </script>
+</body>
+</html>
