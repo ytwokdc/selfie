@@ -268,6 +268,57 @@
             display: flex;
         }
 
+        /* Start Button */
+        .start-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 10000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .start-screen.active {
+            display: flex;
+        }
+
+        .start-title {
+            color: white;
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .start-subtitle {
+            color: rgba(255,255,255,0.9);
+            font-size: 24px;
+            margin-bottom: 50px;
+        }
+
+        .start-button {
+            padding: 25px 70px;
+            border: none;
+            border-radius: 60px;
+            font-size: 28px;
+            font-weight: 600;
+            cursor: pointer;
+            background: white;
+            color: #667eea;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+        }
+
+        .start-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.4);
+        }
+
         .loading-content {
             text-align: center;
             color: white;
@@ -368,6 +419,13 @@
                     <span>.</span><span>.</span><span>.</span>
                 </div>
             </div>
+        </div>
+
+        <!-- Start Screen -->
+        <div class="start-screen active" id="startScreen">
+            <div class="start-title">📸 EasySelfie Touchless</div>
+            <div class="start-subtitle">Photo Booth แบบไร้สัมผัส</div>
+            <button class="start-button" id="startButton">🚀 เริ่มใช้งาน</button>
         </div>
     </div>
 
@@ -542,6 +600,9 @@
                 video.style.display = 'block';
                 overlayCanvas.style.display = 'block';
 
+                // ✅ รอให้ video พร้อม
+                await video.play();
+
                 // Setup MediaPipe camera
                 camera = new Camera(video, {
                     onFrame: async () => {
@@ -552,11 +613,13 @@
                 });
                 
                 await camera.start();
+                
+                console.log('✅ Camera started successfully');
                 return true;
 
             } catch (error) {
                 console.error('Camera error:', error);
-                alert('ไม่สามารถเปิดกล้องได้');
+                alert('ไม่สามารถเปิดกล้องได้\n\nกรุณาอนุญาตให้เข้าถึงกล้อง');
                 return false;
             }
         }
@@ -732,13 +795,31 @@
 
             // Load overlay
             const overlayLoaded = await loadOverlayImage();
-            if (!overlayLoaded) return;
+            if (!overlayLoaded) {
+                document.getElementById('startScreen').classList.remove('active');
+                return;
+            }
 
             // Setup hand detection
             await setupHandDetection();
 
-            // Start camera
-            await startCamera();
+            console.log('✅ System ready, waiting for user to start...');
+        });
+
+        // Start button
+        document.getElementById('startButton').addEventListener('click', async () => {
+            const startScreen = document.getElementById('startScreen');
+            
+            // Hide start screen
+            startScreen.classList.remove('active');
+
+            // ✅ Start camera (with user interaction)
+            const cameraStarted = await startCamera();
+            if (!cameraStarted) {
+                // Show start screen again if failed
+                startScreen.classList.add('active');
+                return;
+            }
 
             console.log('✅ Touchless Photo Booth Ready!');
         });
