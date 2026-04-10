@@ -545,17 +545,19 @@
                 fingerCount.textContent = `${fingers} นิ้ว`;
                 fingerCount.style.display = 'block';
                 
-                // Check if in trigger zone (top-right corner)
+                // Check if in trigger zone
                 const inZone = isInTriggerZone(handX, handY);
                 
                 if (inZone) {
                     detectionZone.classList.add('active');
-                    
-                    // Trigger photo session if 5 fingers detected
-                    if (fingers === 5) {
-                        startPhotoSession();
-                    }
-                } else {
+                }
+                
+                // ✅ แค่ 5 นิ้วก็เริ่มเลย ไม่ต้องอยู่ใน zone
+                if (fingers === 5) {
+                    startPhotoSession();
+                }
+                
+                if (!inZone) {
                     detectionZone.classList.remove('active');
                 }
             } else {
@@ -580,8 +582,8 @@
         }
 
         function isInTriggerZone(x, y) {
-            // Top-right corner (80-100% x, 0-20% y)
-            return x > 0.8 && y < 0.2;
+            // ขยายโซนให้ใหญ่ขึ้นมาก - ครึ่งขวาบน
+            return x > 0.6 && y < 0.4;
         }
 
         // Start camera
