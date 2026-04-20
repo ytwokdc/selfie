@@ -97,22 +97,27 @@
             justify-content: center;
             background: none;
             z-index: 35;
-            animation: borderBlink 1.5s ease-in-out infinite;
+            animation: boxBlink 1.5s ease-in-out infinite;
         }
 
-        @keyframes borderBlink {
+        @keyframes boxBlink {
             0%, 100% {
+                background: rgba(255, 255, 255, 0.3);
                 border-color: rgba(255, 255, 255, 0.9);
+                box-shadow: inset 0 0 30px rgba(255, 255, 255, 0.3);
             }
             50% {
-                border-color: rgba(255, 255, 255, 0.2);
+                background: rgba(255, 255, 255, 0);
+                border-color: rgba(255, 255, 255, 0.3);
+                box-shadow: inset 0 0 30px rgba(255, 255, 255, 0);
             }
         }
 
         .detection-zone.active {
             border-color: #00ff00;
-            animation: none; /* หยุดกระพริบเมื่อตรวจจับได้ */
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+            background: rgba(0, 255, 0, 0.2);
+            animation: none;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5), inset 0 0 20px rgba(0, 255, 0, 0.2);
         }
 
         .hand-icon {
