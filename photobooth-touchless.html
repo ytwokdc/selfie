@@ -97,10 +97,21 @@
             justify-content: center;
             background: none;
             z-index: 35;
+            animation: borderBlink 1.5s ease-in-out infinite;
+        }
+
+        @keyframes borderBlink {
+            0%, 100% {
+                border-color: rgba(255, 255, 255, 0.9);
+            }
+            50% {
+                border-color: rgba(255, 255, 255, 0.2);
+            }
         }
 
         .detection-zone.active {
             border-color: #00ff00;
+            animation: none; /* หยุดกระพริบเมื่อตรวจจับได้ */
             box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
         }
 
@@ -525,9 +536,6 @@
         <!-- Review Screen -->
         <div class="review-screen" id="reviewScreen">
             <div class="review-photos" id="reviewPhotos"></div>
-            <div class="review-instruction">
-                blue card = save / red card = restart
-            </div>
         </div>
 
         <!-- Settings Button -->
@@ -819,11 +827,14 @@
             // หยุด color detection
             stopDetectionLoop();
             
-            // Hide instructions
+            // Hide UI elements
             instructions.style.display = 'none';
             detectionZone.style.display = 'none';
             overlayIndicator.style.display = 'none';
             photoCounter.style.display = 'block';
+            
+            // ซ่อนปุ่ม settings
+            document.getElementById('settingsBtn').style.display = 'none';
 
             try {
                 // Capture photos based on settings
@@ -929,8 +940,10 @@
             // แสดง detection zone (รับสีฟ้า/แดง)
             detectionZone.style.display = 'flex';
             
-            // ซ่อนข้อความใน zone (มี instruction ด้านล่างแล้ว)
-            document.querySelector('.detection-text').style.display = 'none';
+            // เปลี่ยนข้อความในกรอบ
+            const detectionText = document.querySelector('.detection-text');
+            detectionText.innerHTML = 'blue card = save<br>red card = restart';
+            detectionText.style.fontSize = '14px';
 
             // Show photos
             const reviewPhotos = document.getElementById('reviewPhotos');
@@ -1006,8 +1019,13 @@
             overlayIndicator.style.display = 'block';
             photoCounter.style.display = 'none';
             
-            // แสดงข้อความใน zone กลับมา
-            document.querySelector('.detection-text').style.display = 'block';
+            // แสดงปุ่ม settings กลับมา
+            document.getElementById('settingsBtn').style.display = 'flex';
+            
+            // เปลี่ยนข้อความกลับมา
+            const detectionText = document.querySelector('.detection-text');
+            detectionText.innerHTML = 'Place blue card<br>to start';
+            detectionText.style.fontSize = '16px';
             
             // เริ่ม color detection ใหม่
             startDetectionLoop();
