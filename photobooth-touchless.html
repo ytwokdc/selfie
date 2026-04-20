@@ -84,36 +84,37 @@
         /* Hand Detection Zone */
         .detection-zone {
             position: absolute;
-            top: 120px; /* ขยับจากขอบ 120px */
-            left: 120px; /* ขยับจากขอบ 120px */
+            top: 120px;
+            left: 120px;
             width: 200px;
             height: 200px;
-            border: 5px solid rgba(0, 100, 255, 0.8); /* สีน้ำเงิน */
+            border: 3px dashed rgba(255, 255, 255, 0.9);
             border-radius: 15px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: rgba(0, 50, 150, 0.2);
-            z-index: 35; /* สูงกว่า review screen (30) */
+            background: none;
+            z-index: 35;
         }
 
         .detection-zone.active {
-            border-color: #00ff00; /* เขียวเมื่อตรวจจับได้ */
-            background: rgba(0, 255, 0, 0.2);
-            box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+            border-color: #00ff00;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
         }
 
         .hand-icon {
             font-size: 50px;
             margin-bottom: 10px;
+            display: none; /* ซ่อนไอคอน */
         }
 
         .detection-text {
             color: white;
-            font-size: 14px;
+            font-size: 16px;
             text-align: center;
             font-weight: 600;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.8);
         }
 
         /* Instructions */
@@ -203,7 +204,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: #1a1a1a;
+            background: rgba(0, 0, 0, 0.5); /* โปร่งแสง เห็นกล้องด้านหลัง */
             z-index: 30;
             display: none;
             flex-direction: column;
@@ -503,7 +504,7 @@
         <!-- Color Detection Zone -->
         <div class="detection-zone" id="detectionZone">
             <div class="hand-icon">🟦</div>
-            <div class="detection-text">วางป้าย<br>สีน้ำเงินที่นี่</div>
+            <div class="detection-text">Place blue card<br>here</div>
         </div>
 
         <!-- Countdown -->
@@ -517,14 +518,14 @@
 
         <!-- Instructions -->
         <div class="instructions" id="instructions">
-            วางป้ายสีน้ำเงินในกรอบมุมซ้ายบน เพื่อเริ่มถ่ายรูป
+            Place blue card in the frame to start
         </div>
 
         <!-- Review Screen -->
         <div class="review-screen" id="reviewScreen">
             <div class="review-photos" id="reviewPhotos"></div>
             <div class="review-instruction">
-                🟦 วางสีฟ้า = บันทึก &nbsp;&nbsp;|&nbsp;&nbsp; 🟥 วางสีแดง = ถ่ายใหม่
+                Blue = Save &nbsp;&nbsp;|&nbsp;&nbsp; Red = Retake
             </div>
         </div>
 
