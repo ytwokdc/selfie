@@ -590,9 +590,9 @@
         // Configuration
         const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxH1YFbtWakbCdZcSk3WVgqg0YUnvFtotznN-UlnYYBViq0fmxxz-2Kp9cI2AYuTp0vlw/exec';
         
-        // Canvas size 16:9
-        const CANVAS_WIDTH = 1920;
-        const CANVAS_HEIGHT = 1080;
+        // Canvas size 16:9 (HD Ready)
+        const CANVAS_WIDTH = 1280;
+        const CANVAS_HEIGHT = 720;
 
         // Color detection zone (120px from edges, 200x200)
         const DETECTION_X = 120;
@@ -918,7 +918,7 @@
             finalCtx.drawImage(capturedImage, x, y, scaledWidth, scaledHeight);
             finalCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-            return finalCanvas.toDataURL('image/jpeg', 0.9);
+            return finalCanvas.toDataURL('image/jpeg', 1.0);
         }
 
         function showReview() {
