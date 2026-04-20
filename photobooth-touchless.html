@@ -95,7 +95,7 @@
             align-items: center;
             justify-content: center;
             background: rgba(0, 50, 150, 0.2);
-            z-index: 15;
+            z-index: 35; /* สูงกว่า review screen (30) */
         }
 
         .detection-zone.active {
@@ -820,6 +820,7 @@
             // Hide instructions
             instructions.style.display = 'none';
             detectionZone.style.display = 'none';
+            overlayIndicator.style.display = 'none';
             photoCounter.style.display = 'block';
 
             try {
@@ -921,6 +922,10 @@
         function showReview() {
             currentState = 'REVIEW';
             photoCounter.style.display = 'none';
+            overlayIndicator.style.display = 'none';
+
+            // แสดง detection zone (รับสีฟ้า/แดง)
+            detectionZone.style.display = 'flex';
 
             // Show photos
             const reviewPhotos = document.getElementById('reviewPhotos');
@@ -993,6 +998,7 @@
             reviewScreen.classList.remove('active');
             instructions.style.display = 'block';
             detectionZone.style.display = 'flex';
+            overlayIndicator.style.display = 'block';
             photoCounter.style.display = 'none';
             
             // เริ่ม color detection ใหม่
