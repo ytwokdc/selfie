@@ -84,9 +84,9 @@
         /* Hand Detection Zone */
         .detection-zone {
             position: absolute;
-            top: 20px;
-            left: 20px; /* เปลี่ยนจาก right เป็น left */
-            width: 200px; /* เพิ่มจาก 150 เป็น 200 */
+            top: 120px; /* ขยับจากขอบ 120px */
+            left: 120px; /* ขยับจากขอบ 120px */
+            width: 200px;
             height: 200px;
             border: 5px solid rgba(0, 100, 255, 0.8); /* สีน้ำเงิน */
             border-radius: 15px;
@@ -151,8 +151,7 @@
             border-radius: 50%;
             align-items: center;
             justify-content: center;
-            background: rgba(0,0,0,0.3);
-            backdrop-filter: blur(10px);
+            background: rgba(0,0,0,0.3); /* โปร่งใส ไม่มี blur */
         }
 
         .countdown.active {
@@ -208,7 +207,9 @@
 
         .review-photos {
             flex: 1;
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* 2 columns */
+            grid-template-rows: 1fr 1fr; /* 2 rows */
             gap: 20px;
             padding: 20px;
             justify-content: center;
@@ -216,8 +217,7 @@
         }
 
         .review-photo {
-            flex: 1;
-            max-width: 30%;
+            width: 100%;
             background: white;
             border-radius: 15px;
             overflow: hidden;
@@ -421,7 +421,7 @@
 
         <!-- Review Screen -->
         <div class="review-screen" id="reviewScreen">
-            <div class="review-title">รูปของคุณ 📸</div>
+            <div class="review-title">รูปของคุณ (4 รูป) 📸</div>
             <div class="review-photos" id="reviewPhotos"></div>
             <div class="review-buttons">
                 <button class="review-btn btn-retake" id="retakeBtn">🔄 ถ่ายใหม่</button>
@@ -459,9 +459,9 @@
         const CANVAS_WIDTH = 1920;
         const CANVAS_HEIGHT = 1080;
 
-        // Color detection zone (top-left 200x200)
-        const DETECTION_X = 20;
-        const DETECTION_Y = 20;
+        // Color detection zone (120px from edges, 200x200)
+        const DETECTION_X = 120;
+        const DETECTION_Y = 120;
         const DETECTION_SIZE = 200;
 
         // State
@@ -660,9 +660,9 @@
             photoCounter.style.display = 'block';
 
             try {
-                // Capture 3 photos
-                for (let i = 0; i < 3; i++) {
-                    photoCounter.textContent = `รูปที่ ${i + 1}/3`;
+                // Capture 4 photos
+                for (let i = 0; i < 4; i++) {
+                    photoCounter.textContent = `รูปที่ ${i + 1}/4`;
                     
                     // Countdown 5 วินาที
                     await showCountdown(5);
@@ -784,7 +784,7 @@
             loadingOverlay.classList.add('active');
 
             try {
-                // Upload all 3 photos
+                // Upload all 4 photos
                 await Promise.all(capturedPhotos.map((photoData, index) => {
                     const filename = `photo-${Date.now()}-${index + 1}.jpg`;
                     return uploadToDrive(photoData, filename);
