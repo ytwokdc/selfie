@@ -85,22 +85,23 @@
         .detection-zone {
             position: absolute;
             top: 20px;
-            right: 20px;
-            width: 150px;
-            height: 150px;
-            border: 3px dashed rgba(255,255,255,0.5);
+            left: 20px; /* เปลี่ยนจาก right เป็น left */
+            width: 200px; /* เพิ่มจาก 150 เป็น 200 */
+            height: 200px;
+            border: 5px solid rgba(0, 100, 255, 0.8); /* สีน้ำเงิน */
             border-radius: 15px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: rgba(0,0,0,0.3);
-            z-index: 15; /* เพิ่ม z-index ให้สูงกว่า overlay */
+            background: rgba(0, 50, 150, 0.2);
+            z-index: 15;
         }
 
         .detection-zone.active {
-            border-color: #4CAF50;
-            background: rgba(76, 175, 80, 0.2);
+            border-color: #00ff00; /* เขียวเมื่อตรวจจับได้ */
+            background: rgba(0, 255, 0, 0.2);
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
         }
 
         .hand-icon {
@@ -365,21 +366,6 @@
             100% { opacity: 0.2; }
         }
 
-        /* Finger Count Display */
-        .finger-count {
-            position: absolute;
-            top: 200px;
-            right: 40px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 15px 25px;
-            border-radius: 20px;
-            font-size: 24px;
-            font-weight: 600;
-            z-index: 6;
-            display: none;
-        }
-
         /* Flash Effect */
         .flash {
             position: fixed;
@@ -416,24 +402,21 @@
         <canvas id="captureCanvas"></canvas>
         <canvas id="finalCanvas"></canvas>
 
-        <!-- Hand Detection Zone -->
+        <!-- Color Detection Zone -->
         <div class="detection-zone" id="detectionZone">
-            <div class="hand-icon">👋</div>
-            <div class="detection-text">ยกมือ 5 นิ้ว<br>ที่นี่</div>
+            <div class="hand-icon">🟦</div>
+            <div class="detection-text">วางป้าย<br>สีน้ำเงินที่นี่</div>
         </div>
 
-        <!-- Finger Count (Debug) -->
-        <div class="finger-count" id="fingerCount"></div>
-
         <!-- Countdown -->
-        <div class="countdown" id="countdown">3</div>
+        <div class="countdown" id="countdown">5</div>
 
         <!-- Photo Counter -->
         <div class="photo-counter" id="photoCounter">รูปที่ 1/3</div>
 
         <!-- Instructions -->
         <div class="instructions" id="instructions">
-            ยกมือ 5 นิ้วที่มุมขวาบน เพื่อเริ่มถ่ายรูป
+            วางป้ายสีน้ำเงินในกรอบมุมซ้ายบน เพื่อเริ่มถ่ายรูป
         </div>
 
         <!-- Review Screen -->
@@ -467,25 +450,28 @@
         <div class="flash" id="flash"></div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-
     <script>
         // Configuration
         const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxH1YFbtWakbCdZcSk3WVgqg0YUnvFtotznN-UlnYYBViq0fmxxz-2Kp9cI2AYuTp0vlw/exec';
-        const OVERLAY_IMAGE_URL = './images/overlay-landscape.png'; // ต้องเตรียม overlay 16:9
+        const OVERLAY_IMAGE_URL = './images/overlay-landscape.png';
         
         // Canvas size 16:9
         const CANVAS_WIDTH = 1920;
         const CANVAS_HEIGHT = 1080;
 
+        // Color detection zone (top-left 200x200)
+        const DETECTION_X = 20;
+        const DETECTION_Y = 20;
+        const DETECTION_SIZE = 200;
+
         // State
-        let currentState = 'STANDBY'; // STANDBY, CAPTURING, REVIEW, SAVING
+        let currentState = 'STANDBY';
         let capturedPhotos = [];
         let overlayImage = null;
         let stream = null;
-        let hands = null;
-        let camera = null;
+        let detectionLoop = null;
+        let lastTriggerTime = 0;
+        const TRIGGER_COOLDOWN = 2000; // 2 วินาทีป้องกัน trigger ซ้ำ
 
         // Elements
         const video = document.getElementById('video');
@@ -541,87 +527,89 @@
             overlayCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         }
 
-        // MediaPipe Hands
-        async function setupHandDetection() {
-            hands = new Hands({
-                locateFile: (file) => {
-                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-                }
-            });
-
-            hands.setOptions({
-                maxNumHands: 1,
-                modelComplexity: 1,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
-
-            hands.onResults(onHandsResults);
-        }
-
-        function onHandsResults(results) {
-            // Clear hand canvas
-            handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
-
+        // Color Detection
+        function detectBlueColor() {
             // Only detect in STANDBY state
             if (currentState !== 'STANDBY') {
-                fingerCount.style.display = 'none';
+                detectionZone.classList.remove('active');
                 return;
             }
 
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmarks = results.multiHandLandmarks[0];
-                
-                // Count fingers
-                const fingers = countFingers(landmarks);
-                
-                // Get hand position (wrist)
-                const handX = landmarks[0].x;
-                const handY = landmarks[0].y;
-                
-                // Debug: show finger count
-                fingerCount.textContent = `${fingers} นิ้ว`;
-                fingerCount.style.display = 'block';
-                
-                // Check if in trigger zone
-                const inZone = isInTriggerZone(handX, handY);
-                
-                if (inZone) {
-                    detectionZone.classList.add('active');
+            // อ่านข้อมูล pixel จาก video
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = DETECTION_SIZE;
+            tempCanvas.height = DETECTION_SIZE;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            // คำนวณตำแหน่งบน video
+            // เนื่องจาก video มี mirror (scaleX(-1))
+            // detection zone อยู่ซ้าย แต่ต้องอ่านจากขวาของ video stream
+            const videoRect = video.getBoundingClientRect();
+            const scaleX = video.videoWidth / videoRect.width;
+            const scaleY = video.videoHeight / videoRect.height;
+            
+            // อ่านจากด้านขวาของ video (เพราะ mirror)
+            const sourceX = video.videoWidth - (DETECTION_X + DETECTION_SIZE) * scaleX;
+            const sourceY = DETECTION_Y * scaleY;
+            const sourceSize = DETECTION_SIZE * scaleX;
+
+            // วาดส่วนที่ต้องการจาก video
+            tempCtx.drawImage(
+                video,
+                sourceX, sourceY, sourceSize, sourceSize,
+                0, 0, DETECTION_SIZE, DETECTION_SIZE
+            );
+
+            // อ่าน pixel data
+            const imageData = tempCtx.getImageData(0, 0, DETECTION_SIZE, DETECTION_SIZE);
+            const pixels = imageData.data;
+
+            // นับจำนวน pixel สีน้ำเงิน
+            let bluePixelCount = 0;
+            const totalPixels = DETECTION_SIZE * DETECTION_SIZE;
+
+            for (let i = 0; i < pixels.length; i += 4) {
+                const r = pixels[i];
+                const g = pixels[i + 1];
+                const b = pixels[i + 2];
+
+                // ตรวจสอบว่าเป็นสีน้ำเงินหรือไม่
+                // น้ำเงิน = B > R และ B > G
+                if (b > r + 30 && b > g + 30 && b > 100) {
+                    bluePixelCount++;
                 }
-                
-                // ✅ แค่ 5 นิ้วก็เริ่มเลย ไม่ต้องอยู่ใน zone
-                if (fingers === 5) {
-                    startPhotoSession();
-                }
-                
-                if (!inZone) {
-                    detectionZone.classList.remove('active');
-                }
+            }
+
+            // คำนวณเปอร์เซ็นต์
+            const bluePercentage = (bluePixelCount / totalPixels) * 100;
+
+            // ถ้าพบสีน้ำเงิน > 30% → trigger (with cooldown)
+            const now = Date.now();
+            if (bluePercentage > 30 && (now - lastTriggerTime) > TRIGGER_COOLDOWN) {
+                detectionZone.classList.add('active');
+                lastTriggerTime = now;
+                startPhotoSession();
+            } else if (bluePercentage > 30) {
+                detectionZone.classList.add('active');
             } else {
-                fingerCount.style.display = 'none';
                 detectionZone.classList.remove('active');
             }
         }
 
-        function countFingers(landmarks) {
-            let count = 0;
-            
-            // Thumb (check x position)
-            if (landmarks[4].x < landmarks[3].x) count++;
-            
-            // Other fingers (check y position - tip vs pip)
-            const fingers = [8, 12, 16, 20]; // index, middle, ring, pinky
-            for (let tip of fingers) {
-                if (landmarks[tip].y < landmarks[tip - 2].y) count++;
+        // Detection loop
+        function startDetectionLoop() {
+            function loop() {
+                if (detectionLoop) {
+                    detectBlueColor();
+                    requestAnimationFrame(loop);
+                }
             }
-            
-            return count;
+            detectionLoop = true;
+            loop();
         }
 
-        function isInTriggerZone(x, y) {
-            // ขยายโซนให้ใหญ่ขึ้นมาก - ครึ่งขวาบน
-            return x > 0.6 && y < 0.4;
+        function stopDetectionLoop() {
+            detectionLoop = false;
         }
 
         // Start camera
@@ -640,19 +628,11 @@
                 video.style.display = 'block';
                 overlayCanvas.style.display = 'block';
 
-                // ✅ รอให้ video พร้อม
+                // รอให้ video พร้อม
                 await video.play();
 
-                // Setup MediaPipe camera
-                camera = new Camera(video, {
-                    onFrame: async () => {
-                        await hands.send({ image: video });
-                    },
-                    width: 1920,
-                    height: 1080
-                });
-                
-                await camera.start();
+                // เริ่ม color detection loop
+                startDetectionLoop();
                 
                 console.log('✅ Camera started successfully');
                 return true;
@@ -670,6 +650,9 @@
             
             currentState = 'CAPTURING';
             capturedPhotos = [];
+            
+            // หยุด color detection
+            stopDetectionLoop();
             
             // Hide instructions
             instructions.style.display = 'none';
@@ -833,6 +816,9 @@
             instructions.style.display = 'block';
             detectionZone.style.display = 'flex';
             photoCounter.style.display = 'none';
+            
+            // เริ่ม color detection ใหม่
+            startDetectionLoop();
         }
 
         // Upload to Google Drive
@@ -871,9 +857,6 @@
                 document.getElementById('startScreen').classList.remove('active');
                 return;
             }
-
-            // Setup hand detection
-            await setupHandDetection();
 
             console.log('✅ System ready, waiting for user to start...');
         });
