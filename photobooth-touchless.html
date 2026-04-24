@@ -546,6 +546,16 @@
         <!-- Settings Button -->
         <button class="settings-btn" id="settingsBtn">⚙️</button>
 
+        <!-- Manual Mode Buttons -->
+        <div style="position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 40; display: none; justify-content: center;" id="manualStartBtn">
+            <button style="padding: 20px 60px; font-size: 24px; font-weight: 600; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.3);">📸 Start</button>
+        </div>
+
+        <div style="position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 40; display: none; gap: 20px; justify-content: center;" id="manualReviewBtns">
+            <button style="padding: 20px 60px; font-size: 24px; font-weight: 600; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.3);" id="manualRetakeBtn">🔄 Retake</button>
+            <button style="padding: 20px 60px; font-size: 24px; font-weight: 600; background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%); color: white; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.3);" id="manualSaveBtn">💾 Save</button>
+        </div>
+
         <!-- Settings Modal -->
         <div class="settings-modal" id="settingsModal">
             <div class="settings-content">
@@ -571,6 +581,41 @@
                         <div class="settings-option selected" data-value="3">3 วิ</div>
                         <div class="settings-option" data-value="4">4 วิ</div>
                         <div class="settings-option" data-value="5">5 วิ</div>
+                    </div>
+                </div>
+
+                <!-- Mode Selection -->
+                <div class="settings-group">
+                    <label class="settings-label">โหมดการทำงาน:</label>
+                    <div class="settings-options" id="modeOptions">
+                        <div class="settings-option selected" data-value="touchless">Touchless</div>
+                        <div class="settings-option" data-value="manual">Manual</div>
+                    </div>
+                </div>
+
+                <!-- Start Color (Touchless mode only) -->
+                <div class="settings-group" id="startColorGroup">
+                    <label class="settings-label">สีสำหรับเริ่มถ่าย:</label>
+                    <div class="settings-options" id="startColorOptions">
+                        <div class="settings-option selected" data-value="blue" style="background: #4A90E2; color: white;">น้ำเงิน</div>
+                        <div class="settings-option" data-value="red" style="background: #E74C3C; color: white;">แดง</div>
+                        <div class="settings-option" data-value="green" style="background: #2ECC71; color: white;">เขียว</div>
+                        <div class="settings-option" data-value="yellow" style="background: #F1C40F; color: white;">เหลือง</div>
+                        <div class="settings-option" data-value="orange" style="background: #E67E22; color: white;">ส้ม</div>
+                        <div class="settings-option" data-value="pink" style="background: #E91E63; color: white;">ชมพู</div>
+                    </div>
+                </div>
+
+                <!-- Action Color (Touchless mode only) -->
+                <div class="settings-group" id="actionColorGroup">
+                    <label class="settings-label">สีสำหรับบันทึก:</label>
+                    <div class="settings-options" id="actionColorOptions">
+                        <div class="settings-option selected" data-value="blue" style="background: #4A90E2; color: white;">น้ำเงิน</div>
+                        <div class="settings-option" data-value="red" style="background: #E74C3C; color: white;">แดง</div>
+                        <div class="settings-option" data-value="green" style="background: #2ECC71; color: white;">เขียว</div>
+                        <div class="settings-option" data-value="yellow" style="background: #F1C40F; color: white;">เหลือง</div>
+                        <div class="settings-option" data-value="orange" style="background: #E67E22; color: white;">ส้ม</div>
+                        <div class="settings-option" data-value="pink" style="background: #E91E63; color: white;">ชมพู</div>
                     </div>
                 </div>
 
@@ -616,7 +661,10 @@
         let settings = {
             photoCount: 4,
             countdownSeconds: 3,
-            overlayPath: './images/overlay01.png'
+            overlayPath: './images/overlay01.png',
+            mode: 'touchless', // 'touchless' or 'manual'
+            startColor: 'blue',
+            actionColor: 'blue' // สีสำหรับ save (review state)
         };
 
         // Available overlays
@@ -687,21 +735,42 @@
             overlayCtx.drawImage(overlayImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         }
 
+        // Color matching function
+        function isColorMatch(r, g, b, colorName) {
+            switch(colorName) {
+                case 'blue':
+                    return b > r + 30 && b > g + 30 && b > 100;
+                case 'red':
+                    return r > b + 30 && r > g + 30 && r > 100;
+                case 'green':
+                    return g > r + 30 && g > b + 30 && g > 100;
+                case 'yellow':
+                    return r > 150 && g > 150 && b < 100 && Math.abs(r - g) < 50;
+                case 'orange':
+                    return r > 180 && g > 80 && g < 150 && b < 80;
+                case 'pink':
+                    return r > 150 && g < 120 && b > 100 && r > b + 30;
+                default:
+                    return false;
+            }
+        }
+
         // Color Detection
         function detectBlueColor() {
+            // Skip in manual mode
+            if (settings.mode === 'manual') return;
+            
             // Detect in STANDBY or REVIEW state
             if (currentState !== 'STANDBY' && currentState !== 'REVIEW') {
                 detectionZone.classList.remove('active');
                 return;
             }
 
-            // อ่านข้อมูล pixel จาก video
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = DETECTION_SIZE;
             tempCanvas.height = DETECTION_SIZE;
             const tempCtx = tempCanvas.getContext('2d');
 
-            // คำนวณตำแหน่งบน video (mirror adjusted)
             const videoRect = video.getBoundingClientRect();
             const scaleX = video.videoWidth / videoRect.width;
             const scaleY = video.videoHeight / videoRect.height;
@@ -719,8 +788,8 @@
             const imageData = tempCtx.getImageData(0, 0, DETECTION_SIZE, DETECTION_SIZE);
             const pixels = imageData.data;
 
-            let bluePixelCount = 0;
-            let redPixelCount = 0;
+            let startColorCount = 0;
+            let actionColorCount = 0;
             const totalPixels = DETECTION_SIZE * DETECTION_SIZE;
 
             for (let i = 0; i < pixels.length; i += 4) {
@@ -728,45 +797,41 @@
                 const g = pixels[i + 1];
                 const b = pixels[i + 2];
 
-                // ตรวจสอบสีน้ำเงิน
-                if (b > r + 30 && b > g + 30 && b > 100) {
-                    bluePixelCount++;
+                // Check start color
+                if (isColorMatch(r, g, b, settings.startColor)) {
+                    startColorCount++;
                 }
                 
-                // ตรวจสอบสีแดง (เฉพาะ REVIEW state)
-                if (currentState === 'REVIEW' && r > b + 30 && r > g + 30 && r > 100) {
-                    redPixelCount++;
+                // Check action color (for REVIEW state)
+                if (currentState === 'REVIEW' && isColorMatch(r, g, b, settings.actionColor)) {
+                    actionColorCount++;
                 }
             }
 
-            const bluePercentage = (bluePixelCount / totalPixels) * 100;
-            const redPercentage = (redPixelCount / totalPixels) * 100;
+            const startPercentage = (startColorCount / totalPixels) * 100;
+            const actionPercentage = (actionColorCount / totalPixels) * 100;
             const now = Date.now();
 
-            // STANDBY state: blue = start photo session
+            // STANDBY state: start color triggers photo session
             if (currentState === 'STANDBY') {
-                if (bluePercentage > 30 && (now - lastTriggerTime) > TRIGGER_COOLDOWN) {
+                if (startPercentage > 30 && (now - lastTriggerTime) > TRIGGER_COOLDOWN) {
                     detectionZone.classList.add('active');
                     lastTriggerTime = now;
                     startPhotoSession();
-                } else if (bluePercentage > 30) {
+                } else if (startPercentage > 30) {
                     detectionZone.classList.add('active');
                 } else {
                     detectionZone.classList.remove('active');
                 }
             }
             
-            // REVIEW state: blue = save, red = retake
+            // REVIEW state: action color = save
             else if (currentState === 'REVIEW') {
-                if (bluePercentage > 30 && (now - lastTriggerTime) > TRIGGER_COOLDOWN) {
+                if (actionPercentage > 30 && (now - lastTriggerTime) > TRIGGER_COOLDOWN) {
                     detectionZone.classList.add('active');
                     lastTriggerTime = now;
                     savePhotos();
-                } else if (redPercentage > 30 && (now - lastTriggerTime) > TRIGGER_COOLDOWN) {
-                    detectionZone.classList.add('active');
-                    lastTriggerTime = now;
-                    resetToStandby();
-                } else if (bluePercentage > 30 || redPercentage > 30) {
+                } else if (actionPercentage > 30) {
                     detectionZone.classList.add('active');
                 } else {
                     detectionZone.classList.remove('active');
@@ -837,6 +902,7 @@
             detectionZone.style.display = 'none';
             overlayIndicator.style.display = 'none';
             photoCounter.style.display = 'block';
+            document.getElementById('manualStartBtn').style.display = 'none';
             
             // ซ่อนปุ่ม settings
             document.getElementById('settingsBtn').style.display = 'none';
@@ -942,13 +1008,29 @@
             photoCounter.style.display = 'none';
             overlayIndicator.style.display = 'none';
 
-            // แสดง detection zone (รับสีฟ้า/แดง)
-            detectionZone.style.display = 'flex';
-            
-            // เปลี่ยนข้อความในกรอบ
-            const detectionText = document.querySelector('.detection-text');
-            detectionText.innerHTML = 'blue card = save<br>red card = restart';
-            detectionText.style.fontSize = '14px';
+            // Show appropriate UI based on mode
+            if (settings.mode === 'touchless') {
+                // Touchless: show detection zone with color
+                detectionZone.style.display = 'flex';
+                document.getElementById('manualReviewBtns').style.display = 'none';
+                
+                // Update text with action color
+                const detectionText = document.querySelector('.detection-text');
+                const colorNames = {
+                    blue: 'blue',
+                    red: 'red',
+                    green: 'green',
+                    yellow: 'yellow',
+                    orange: 'orange',
+                    pink: 'pink'
+                };
+                detectionText.innerHTML = `${colorNames[settings.actionColor]} card = save`;
+                detectionText.style.fontSize = '14px';
+            } else {
+                // Manual: show buttons
+                detectionZone.style.display = 'none';
+                document.getElementById('manualReviewBtns').style.display = 'flex';
+            }
 
             // Show photos
             const reviewPhotos = document.getElementById('reviewPhotos');
@@ -983,8 +1065,10 @@
 
             reviewScreen.classList.add('active');
             
-            // เริ่ม detection loop ใหม่ (รับสีฟ้า/แดง)
-            startDetectionLoop();
+            // Start detection loop (only for touchless mode)
+            if (settings.mode === 'touchless') {
+                startDetectionLoop();
+            }
         }
 
         // Save photos function
@@ -1019,21 +1103,17 @@
             capturedPhotos = [];
             
             reviewScreen.classList.remove('active');
-            instructions.style.display = 'block';
-            detectionZone.style.display = 'flex';
             overlayIndicator.style.display = 'block';
             photoCounter.style.display = 'none';
             
-            // แสดงปุ่ม settings กลับมา
+            // Hide manual review buttons
+            document.getElementById('manualReviewBtns').style.display = 'none';
+            
+            // Show settings button
             document.getElementById('settingsBtn').style.display = 'flex';
             
-            // เปลี่ยนข้อความกลับมา
-            const detectionText = document.querySelector('.detection-text');
-            detectionText.innerHTML = 'Place blue card<br>to start';
-            detectionText.style.fontSize = '16px';
-            
-            // เริ่ม color detection ใหม่
-            startDetectionLoop();
+            // Update UI based on mode
+            updateModeUI();
         }
 
         // Upload to Google Drive
@@ -1101,6 +1181,82 @@
                     settings.countdownSeconds = parseInt(this.dataset.value);
                 });
             });
+
+            // Mode selection
+            document.querySelectorAll('#modeOptions .settings-option').forEach(opt => {
+                opt.addEventListener('click', function() {
+                    document.querySelectorAll('#modeOptions .settings-option').forEach(o => o.classList.remove('selected'));
+                    this.classList.add('selected');
+                    settings.mode = this.dataset.value;
+                    
+                    // Show/hide color options based on mode
+                    if (settings.mode === 'touchless') {
+                        document.getElementById('startColorGroup').style.display = 'block';
+                        document.getElementById('actionColorGroup').style.display = 'block';
+                    } else {
+                        document.getElementById('startColorGroup').style.display = 'none';
+                        document.getElementById('actionColorGroup').style.display = 'none';
+                    }
+                    
+                    updateModeUI();
+                });
+            });
+
+            // Start color selection
+            document.querySelectorAll('#startColorOptions .settings-option').forEach(opt => {
+                opt.addEventListener('click', function() {
+                    document.querySelectorAll('#startColorOptions .settings-option').forEach(o => o.classList.remove('selected'));
+                    this.classList.add('selected');
+                    settings.startColor = this.dataset.value;
+                    updateDetectionText();
+                });
+            });
+
+            // Action color selection
+            document.querySelectorAll('#actionColorOptions .settings-option').forEach(opt => {
+                opt.addEventListener('click', function() {
+                    document.querySelectorAll('#actionColorOptions .settings-option').forEach(o => o.classList.remove('selected'));
+                    this.classList.add('selected');
+                    settings.actionColor = this.dataset.value;
+                });
+            });
+        }
+
+        // Update UI based on mode
+        function updateModeUI() {
+            if (settings.mode === 'manual') {
+                // Manual mode - show buttons, hide detection zone
+                detectionZone.style.display = 'none';
+                instructions.style.display = 'none';
+                document.getElementById('manualStartBtn').style.display = 'flex';
+                stopDetectionLoop();
+            } else {
+                // Touchless mode - show detection zone, hide buttons
+                detectionZone.style.display = 'flex';
+                instructions.style.display = 'block';
+                document.getElementById('manualStartBtn').style.display = 'none';
+                document.getElementById('manualReviewBtns').style.display = 'none';
+                if (currentState === 'STANDBY') {
+                    startDetectionLoop();
+                }
+            }
+            updateDetectionText();
+        }
+
+        // Update detection zone text based on color
+        function updateDetectionText() {
+            if (settings.mode === 'touchless' && currentState === 'STANDBY') {
+                const colorNames = {
+                    blue: 'blue',
+                    red: 'red',
+                    green: 'green',
+                    yellow: 'yellow',
+                    orange: 'orange',
+                    pink: 'pink'
+                };
+                const colorName = colorNames[settings.startColor];
+                document.querySelector('.detection-text').innerHTML = `Place ${colorName} card<br>to start`;
+            }
         }
 
         // Check available overlays
@@ -1170,7 +1326,7 @@
             // Hide start screen
             startScreen.classList.remove('active');
 
-            // ✅ Start camera (with user interaction)
+            // Start camera (with user interaction)
             const cameraStarted = await startCamera();
             if (!cameraStarted) {
                 // Show start screen again if failed
@@ -1178,7 +1334,31 @@
                 return;
             }
 
+            // Update UI based on mode
+            updateModeUI();
+
             console.log('✅ Touchless Photo Booth Ready!');
+        });
+
+        // Manual mode: Start button
+        document.querySelector('#manualStartBtn button').addEventListener('click', () => {
+            if (currentState === 'STANDBY') {
+                startPhotoSession();
+            }
+        });
+
+        // Manual mode: Save button
+        document.getElementById('manualSaveBtn').addEventListener('click', () => {
+            if (currentState === 'REVIEW') {
+                savePhotos();
+            }
+        });
+
+        // Manual mode: Retake button
+        document.getElementById('manualRetakeBtn').addEventListener('click', () => {
+            if (currentState === 'REVIEW') {
+                resetToStandby();
+            }
         });
     </script>
 </body>
