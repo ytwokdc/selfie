@@ -215,7 +215,7 @@
         let capturedImage = null;
         let facingMode = 'user';
 
-        // กรอบทั้งหมด (โหลดอัตโนมัติจาก images/overlay01.png, 02, 03, ...)
+        // กรอบทั้งหมด (โหลดอัตโนมัติจาก images/frame01.png, 02, 03, ...)
         let overlays = [];        // [{ path, img }]
         let currentFrame = 0;
 
@@ -244,13 +244,13 @@
             });
         }
 
-        // โหลดกรอบทีละไฟล์จนกว่าจะไม่เจอ (overlay01, overlay02, ...)
+        // โหลดกรอบทีละไฟล์จนกว่าจะไม่เจอ (frame01, frame02, ...)
         async function loadAllOverlays() {
             overlays = [];
             let i = 1;
             while (true) {
                 const num = String(i).padStart(2, '0');
-                const path = `./images/overlay${num}.png`;
+                const path = `./images/frame${num}.png`;
                 try {
                     const img = await loadImage(path);
                     overlays.push({ path, img });
@@ -507,7 +507,7 @@
                 drawOverlay();
                 updateFrameLabel();
             } else {
-                console.warn('ไม่พบไฟล์กรอบใน images/ (overlay01.png ...)');
+                console.warn('ไม่พบไฟล์กรอบใน images/ (frame01.png ...)');
                 frameCount.textContent = 'ไม่มีกรอบ';
             }
         });
