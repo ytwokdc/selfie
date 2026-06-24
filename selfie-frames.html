@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasySelfie</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 20px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            background: #1a1a1a;
+            aspect-ratio: 857 / 1200;
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        #video.mirror { transform: scaleX(-1); }
+
+        #previewCanvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+
+        #overlayCanvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+        }
+
+        #captureCanvas, #finalCanvas { display: none; }
+
+        /* ── Frame Selector ── */
+        .frame-selector {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            max-width: 600px;
+            margin: 0 auto 15px;
+        }
+
+        .frame-selector.show { display: flex; }
+
+        .frame-arrow {
+            width: 56px;
+            height: 56px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 26px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+            transition: transform 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .frame-arrow:active { transform: scale(0.92); }
+
+        .frame-label {
+            flex: 1;
+            max-width: 220px;
+            text-align: center;
+            background: #f0effb;
+            border-radius: 16px;
+            padding: 12px 10px;
+            line-height: 1.3;
+        }
+
+        .frame-label .title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #764ba2;
+            display: block;
+        }
+
+        .frame-label .count {
+            font-size: 14px;
+            color: #8a7fb0;
+        }
+
+        /* ── Buttons ── */
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 20px 0 0;
+        }
+
+        button.main-btn {
+            padding: 14px 35px;
+            border: none;
+            border-radius: 25px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button.main-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        button.main-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-success { background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%); color: white; }
+
+        /* ── Save hint ── */
+        .save-hint {
+            text-align: center;
+            font-size: 14px;
+            color: #8a7fb0;
+            margin-top: 12px;
+            display: none;
+        }
+        .save-hint.show { display: block; }
+
+        @media (max-width: 600px) {
+            .container { padding: 12px; border-radius: 15px; }
+            .canvas-wrapper { margin: 0 auto 12px; border-radius: 10px; }
+            button.main-btn { padding: 12px 26px; font-size: 16px; }
+            .frame-arrow { width: 52px; height: 52px; font-size: 24px; }
+            .frame-label .title { font-size: 15px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="canvas-wrapper">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="previewCanvas"></canvas>
+            <canvas id="overlayCanvas"></canvas>
+        </div>
+
+        <canvas id="captureCanvas"></canvas>
+        <canvas id="finalCanvas"></canvas>
+
+        <!-- Frame Selector -->
+        <div class="frame-selector" id="frameSelector">
+            <button class="frame-arrow" id="framePrev">‹</button>
+            <div class="frame-label">
+                <span class="title">🖼️ เลือกกรอบ</span>
+                <span class="count" id="frameCount">1 / 1</span>
+            </div>
+            <button class="frame-arrow" id="frameNext">›</button>
+        </div>
+
+        <!-- Camera buttons -->
+        <div class="button-group" id="cameraButtons">
+            <button class="main-btn btn-primary" id="startCamera">📹 เปิดกล้อง</button>
+            <button class="main-btn btn-primary" id="flipCamera" disabled>🔄 สลับกล้อง</button>
+            <button class="main-btn btn-success" id="capture" disabled>📷 ถ่ายรูป</button>
+        </div>
+
+        <!-- Save buttons -->
+        <div class="button-group" id="saveButtons" style="display: none;">
+            <button class="main-btn btn-success" id="saveBtn">💾 บันทึก</button>
+            <button class="main-btn btn-primary" id="retakeBtn">↺ ถ่ายใหม่</button>
+        </div>
+
+        <div class="save-hint" id="saveHint"></div>
+    </div>
+
+    <script>
+        const CANVAS_WIDTH = 857;
+        const CANVAS_HEIGHT = 1200;
+
+        // ตรวจว่าเป็นมือถือไหม
+        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+        let stream = null;
+        let capturedImage = null;
+        let facingMode = 'user';
+
+        // กรอบทั้งหมด (โหลดอัตโนมัติจาก images/overlay01.png, 02, 03, ...)
+        let overlays = [];        // [{ path, img }]
+        let currentFrame = 0;
+
+        const video = document.getElementById('video');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const overlayCanvas = document.getElementById('overlayCanvas');
+        const captureCanvas = document.getElementById('captureCanvas');
+        const finalCanvas = document.getElementById('finalCanvas');
+
+        const previewCtx = previewCanvas.getContext('2d');
+        const overlayCtx = overlayCanvas.getContext('2d');
+        const captureCtx = captureCanvas.getContext('2d');
+        const finalCtx = finalCanvas.getContext('2d');
+
+        const frameSelector = document.getElementById('frameSelector');
+        const frameCount = document.getElementById('frameCount');
+        const saveHint = document.getElementById('saveHint');
+
+        function loadImage(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = url;
+            });
+        }
+
+        // โหลดกรอบทีละไฟล์จนกว่าจะไม่เจอ (overlay01, overlay02, ...)
+        async function loadAllOverlays() {
+            overlays = [];
+            let i = 1;
+            while (true) {
+                const num = String(i).padStart(2, '0');
+                const path = `./images/overlay${num}.png`;
+                try {
+                    const img = await loadImage(path);
+                    overlays.push({ path, img });
+                    i++;
+                } catch {
+                    break;
+                }
+            }
+            return overlays.length;
+        }
+
+        function drawOverlay() {
+            overlayCanvas.width = CANVAS_WIDTH;
+            overlayCanvas.height = CANVAS_HEIGHT;
+            overlayCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            if (overlays.length > 0) {
+                overlayCtx.drawImage(overlays[currentFrame].img, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            }
+        }
+
+        function updateFrameLabel() {
+            frameCount.textContent = `${currentFrame + 1} / ${overlays.length}`;
+        }
+
+        function changeFrame(direction) {
+            if (overlays.length === 0) return;
+            currentFrame = (currentFrame + direction + overlays.length) % overlays.length;
+            drawOverlay();
+            updateFrameLabel();
+            // ถ้ากำลังดู preview อยู่ ให้วาดใหม่ด้วยกรอบใหม่
+            if (capturedImage && previewCanvas.style.display === 'block') {
+                drawPreview();
+            }
+        }
+
+        document.getElementById('framePrev').addEventListener('click', () => changeFrame(-1));
+        document.getElementById('frameNext').addEventListener('click', () => changeFrame(1));
+
+        // ลูกศรคีย์บอร์ด (สำหรับคอม)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') changeFrame(-1);
+            else if (e.key === 'ArrowRight') changeFrame(1);
+        });
+
+        // เปิดกล้อง
+        async function openCamera(facing) {
+            try {
+                if (stream) stream.getTracks().forEach(t => t.stop());
+
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: facing }
+                });
+
+                video.srcObject = stream;
+                video.style.display = 'block';
+                overlayCanvas.style.display = 'block';
+
+                if (facing === 'user') video.classList.add('mirror');
+                else video.classList.remove('mirror');
+
+                document.getElementById('startCamera').disabled = true;
+                document.getElementById('flipCamera').disabled = false;
+                document.getElementById('capture').disabled = false;
+
+                // แสดงตัวเลือกกรอบ
+                frameSelector.classList.add('show');
+
+                return true;
+            } catch (error) {
+                console.error('Camera error:', error);
+                alert('ไม่สามารถเปิดกล้องได้\nกรุณาอนุญาตให้เข้าถึงกล้อง');
+                return false;
+            }
+        }
+
+        document.getElementById('startCamera').addEventListener('click', async () => {
+            await openCamera(facingMode);
+        });
+
+        document.getElementById('flipCamera').addEventListener('click', async () => {
+            facingMode = facingMode === 'user' ? 'environment' : 'user';
+            await openCamera(facingMode);
+        });
+
+        // ถ่ายรูป
+        document.getElementById('capture').addEventListener('click', async () => {
+            if (!video.videoWidth) return;
+
+            document.getElementById('cameraButtons').style.display = 'none';
+            frameSelector.classList.remove('show');
+
+            try {
+                captureCanvas.width = video.videoWidth;
+                captureCanvas.height = video.videoHeight;
+
+                if (facingMode === 'user') {
+                    captureCtx.save();
+                    captureCtx.scale(-1, 1);
+                    captureCtx.drawImage(video, -video.videoWidth, 0);
+                    captureCtx.restore();
+                } else {
+                    captureCtx.drawImage(video, 0, 0);
+                }
+
+                capturedImage = await loadImage(captureCanvas.toDataURL());
+
+                video.style.display = 'none';
+                previewCanvas.style.display = 'block';
+
+                drawPreview();
+
+                document.getElementById('saveButtons').style.display = 'flex';
+                // ยังเลือกเปลี่ยนกรอบได้ตอน preview
+                frameSelector.classList.add('show');
+                showSaveHint();
+            } catch (error) {
+                console.error('Capture error:', error);
+                document.getElementById('cameraButtons').style.display = 'flex';
+                frameSelector.classList.add('show');
+            }
+        });
+
+        function drawPreview() {
+            if (!capturedImage) return;
+            previewCanvas.width = CANVAS_WIDTH;
+            previewCanvas.height = CANVAS_HEIGHT;
+
+            const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height);
+            const w = capturedImage.width * scale;
+            const h = capturedImage.height * scale;
+            const x = (CANVAS_WIDTH - w) / 2;
+            const y = (CANVAS_HEIGHT - h) / 2;
+
+            previewCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            previewCtx.drawImage(capturedImage, x, y, w, h);
+            if (overlays.length > 0) {
+                previewCtx.drawImage(overlays[currentFrame].img, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            }
+        }
+
+        function showSaveHint() {
+            saveHint.textContent = isMobile
+                ? 'แตะ “บันทึก” เพื่อเซฟลงเครื่องหรือแชร์'
+                : 'แตะ “บันทึก” เพื่อเลือกโฟลเดอร์ที่จัดเก็บ';
+            saveHint.classList.add('show');
+        }
+
+        // บันทึก
+        document.getElementById('saveBtn').addEventListener('click', async () => {
+            if (!capturedImage) return;
+
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+
+            try {
+                // สร้างรูปสุดท้าย (ภาพ + กรอบ)
+                finalCanvas.width = CANVAS_WIDTH;
+                finalCanvas.height = CANVAS_HEIGHT;
+
+                const scale = Math.max(CANVAS_WIDTH / capturedImage.width, CANVAS_HEIGHT / capturedImage.height);
+                const w = capturedImage.width * scale;
+                const h = capturedImage.height * scale;
+                const x = (CANVAS_WIDTH - w) / 2;
+                const y = (CANVAS_HEIGHT - h) / 2;
+
+                finalCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                finalCtx.drawImage(capturedImage, x, y, w, h);
+                if (overlays.length > 0) {
+                    finalCtx.drawImage(overlays[currentFrame].img, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                }
+
+                const blob = await new Promise(res => finalCanvas.toBlob(res, 'image/jpeg', 0.9));
+                const filename = `selfie-${Date.now()}.jpg`;
+
+                await saveImage(blob, filename);
+                resetCamera();
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Save error:', error);
+                    alert('เกิดข้อผิดพลาด\n\n' + error.message);
+                }
+                btn.disabled = false;
+            }
+        });
+
+        // บันทึกรูป: มือถือ = แชร์ในตัว / คอม = เลือกโฟลเดอร์ / สำรอง = ดาวน์โหลด
+        async function saveImage(blob, filename) {
+            const file = new File([blob], filename, { type: 'image/jpeg' });
+
+            // 1) มือถือ → Web Share API (มีตัวเลือกเซฟ/แชร์ ทั้ง iOS และ Android)
+            if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({ files: [file], title: 'Selfie' });
+                    return;
+                } catch (e) {
+                    if (e.name === 'AbortError') return; // ผู้ใช้กดยกเลิก
+                    // ถ้าแชร์ไม่ได้ ตกไปใช้ดาวน์โหลด
+                }
+            }
+
+            // 2) คอม (Chrome/Edge) → เลือกโฟลเดอร์ที่จะเซฟ
+            if (window.showSaveFilePicker) {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: filename,
+                    types: [{ description: 'JPEG Image', accept: { 'image/jpeg': ['.jpg'] } }]
+                });
+                const writable = await handle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+                return;
+            }
+
+            // 3) สำรอง → ดาวน์โหลดปกติ (Firefox/Safari บนคอม)
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        document.getElementById('retakeBtn').addEventListener('click', resetCamera);
+
+        // กลับไปหน้ากล้อง (stream ยังเปิดอยู่ ไม่ต้องขอ permission ใหม่)
+        function resetCamera() {
+            document.getElementById('saveButtons').style.display = 'none';
+            document.getElementById('cameraButtons').style.display = 'flex';
+            saveHint.classList.remove('show');
+
+            previewCanvas.style.display = 'none';
+            video.style.display = 'block';
+            overlayCanvas.style.display = 'block';
+            frameSelector.classList.add('show');
+
+            capturedImage = null;
+            document.getElementById('saveBtn').disabled = false;
+        }
+
+        // เริ่มต้น
+        window.addEventListener('load', async () => {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert('เบราว์เซอร์ไม่รองรับการเข้าถึงกล้อง');
+                document.getElementById('startCamera').disabled = true;
+                return;
+            }
+
+            overlayCanvas.width = CANVAS_WIDTH;
+            overlayCanvas.height = CANVAS_HEIGHT;
+
+            const count = await loadAllOverlays();
+            if (count > 0) {
+                drawOverlay();
+                updateFrameLabel();
+            } else {
+                console.warn('ไม่พบไฟล์กรอบใน images/ (overlay01.png ...)');
+                frameCount.textContent = 'ไม่มีกรอบ';
+            }
+        });
+    </script>
+</body>
+</html>
