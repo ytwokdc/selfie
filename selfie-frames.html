@@ -65,15 +65,13 @@
 
         /* ── Frame Selector ── */
         .frame-selector {
-            display: none;
+            display: flex;
             align-items: center;
             justify-content: center;
             gap: 12px;
             max-width: 600px;
             margin: 0 auto 15px;
         }
-
-        .frame-selector.show { display: flex; }
 
         .frame-arrow {
             width: 56px;
@@ -316,7 +314,6 @@
                 document.getElementById('capture').disabled = false;
 
                 // แสดงตัวเลือกกรอบ
-                frameSelector.classList.add('show');
 
                 return true;
             } catch (error) {
@@ -340,7 +337,6 @@
             if (!video.videoWidth) return;
 
             document.getElementById('cameraButtons').style.display = 'none';
-            frameSelector.classList.remove('show');
 
             try {
                 captureCanvas.width = video.videoWidth;
@@ -364,12 +360,10 @@
 
                 document.getElementById('saveButtons').style.display = 'flex';
                 // ยังเลือกเปลี่ยนกรอบได้ตอน preview
-                frameSelector.classList.add('show');
                 showSaveHint();
             } catch (error) {
                 console.error('Capture error:', error);
                 document.getElementById('cameraButtons').style.display = 'flex';
-                frameSelector.classList.add('show');
             }
         });
 
@@ -485,7 +479,6 @@
             previewCanvas.style.display = 'none';
             video.style.display = 'block';
             overlayCanvas.style.display = 'block';
-            frameSelector.classList.add('show');
 
             capturedImage = null;
             document.getElementById('saveBtn').disabled = false;
